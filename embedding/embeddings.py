@@ -45,12 +45,12 @@ class PretrainedEmbedding(Module):
         if not isinstance(sentences, list):
             sentences = [sentences]
         
-        #convert to lowercase words
+        # Convert to lowercase words
         sentences = [str.lower(sentence) for sentence in sentences]
 
         batch_size = len(sentences)
-        #Convert list of sentences to list of list of tokens
-        #TODO: should we use shlex to split, to have words in quotes stay as one word? 
+        # Convert list of sentences to list of list of tokens
+        # TODO: should we use shlex to split, to have words in quotes stay as one word? 
         #      maybe these would just be unkown words though
         sentences_words = [word_tokenize(sentence) for sentence in sentences]
 
@@ -58,20 +58,20 @@ class PretrainedEmbedding(Module):
         lenghts = [len(sentence) for sentence in sentences_words]
         max_len = max(lenghts)
 
-        #Use 0 as padding token
+        # Use 0 as padding token
         indecies = torch.zeros(batch_size, max_len).long().to(self.embedding.weight.device)        
         
-        #Convert tokens to indecies
-        #TODO: chose more sensible unknown token instead of just using the first (".") token
+        # Convert tokens to indecies
+        # TODO: chose more sensible unknown token instead of just using the first (".") token
         for i, sentence in enumerate(sentences_words):
             for j, word in enumerate(sentence):
                 indecies[i,j] = self.word2idx.get(word,0)
-        #TODO: pad tensors using pytorch instead of numpy?
+        # TODO: pad tensors using pytorch instead of numpy?
         word_embeddings = self.embedding(indecies)
-
 
         if mean_sequence:
             word_embeddings = torch.sum(word_embeddings,dim=1)/torch.tensor(lenghts).float().to(self.embedding.weight.device)
+
         return word_embeddings, np.asarray(lenghts)
         
     def get_history_emb(self, histories):
@@ -87,7 +87,7 @@ class PretrainedEmbedding(Module):
         lengths = [len(history) for history in histories]
         max_len = max(lengths)
 
-        #create tensor to store the resulting embeddings in
+        # Create tensor to store the resulting embeddings in
         embeddings = torch.zeros(batch_size, max_len, self.embedding_dim).to(self.embedding.weight.device)
         for i,history in enumerate(histories):
 
@@ -102,23 +102,25 @@ class PretrainedEmbedding(Module):
         Args:
             columns list(list(list(str))): nested list, where indecies corresponds to [i][j][k], i=batch, j=column, k=word  
         
-        """   
+        """
         batch_size = len(columns)
-        #get the number of columns in each database
+
+        # Get the number of columns in each database
         lengths = [len(column) for column in columns]
-        #Get the number of tokens for each column, eg ['tablename','text','column','with','long','name']
+
+        # Get the number of tokens for each column, eg ['tablename','text','column','with','long','name']
         col_name_lengths = [[len(word) for word in column] for column in columns]
         max_len = max(lengths)
         max_col_name_len = max([max(col_name_len) for col_name_len in col_name_lengths])
 
         embeddings = torch.zeros(batch_size, max_len, max_col_name_len, self.embedding_dim).to(self.embedding.weight.device)
         col_name_lengths = np.zeros((batch_size, max_len))
+
         for i, db in enumerate(columns):
-            
             if str(db) in self.column_cache:
                 cached_emb, cached_lengths = self.column_cache[str(db)]
 
-                #different batches might have different padding, so pick the minumum needed
+                # Different batches might have different padding, so pick the minumum needed
                 min_size1 = min(cached_emb.size(0), max_len)
                 min_size2 = min(cached_emb.size(1), max_col_name_len)
 
@@ -127,15 +129,16 @@ class PretrainedEmbedding(Module):
                 continue
 
             for j, column in enumerate(db):
-                #embedding takes in a sentence, to concat the words of the column into a sentence
+                # Embedding takes in a sentence, to concat the words of the column into a sentence
                 column = ' '.join(column)
                 emb,col_name_len = self(column)
                 embeddings[i,j,:int(col_name_len),:] = emb
                 col_name_lengths[i,j] = int(col_name_len)
 
-            #try and cache the embeddings for the columns in the db
+            # Try and cache the embeddings for the columns in the db
             if self.use_column_cache:
                 self.column_cache[str(db)] = (embeddings[i,:,:], col_name_lengths[i,:])
+
         return embeddings, np.asarray(lengths),col_name_lengths
 
 
@@ -147,7 +150,7 @@ class GloveEmbedding(PretrainedEmbedding):
     def __init__(self, path='data/glove.6B.50d.txt'):
         word2idx, vectors = {}, []
 
-        #Load vectors and build dictionary over word-index pairs
+        # Load vectors and build dictionary over word-index pairs
         with open(path,'r', encoding ="utf8") as f:
             for idx, line in enumerate(f,1):
                 line = line.split()     
