@@ -32,7 +32,7 @@ class PretrainedEmbedding(Module):
         if not trainable:
             self.embedding.weight.requires_grad = False
 
-    def forward(self, sentences, mean_sequence=True):
+    def forward(self, sentences, mean_sequence=False):
         """
         Args:
             sentences list[str] or str: list of sentences, or one sentence
@@ -138,7 +138,7 @@ class PretrainedEmbedding(Module):
         return embeddings, np.asarray(lengths),col_name_lengths
 
 class GloveEmbedding(PretrainedEmbedding):
-    def __init__(self, path='glove.6B.50d.txt'):
+    def __init__(self, path='data/glove.6B.50d.txt'):
 	
         directory=os.path.dirname(os.path.abspath(__file__))
         
@@ -146,7 +146,7 @@ class GloveEmbedding(PretrainedEmbedding):
         word2idx = {}
         vectors = []
         #Load vectors, and build word dictionary
-        with open(directory + '/' + path,'r', encoding ="utf8") as f:
+        with open(path,'r', encoding ="utf8") as f:
             for idx, line in enumerate(f,1):
                 line = line.split()
                 word = line[0]

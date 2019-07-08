@@ -108,3 +108,4 @@ venv.bak/
 logs/*
 *.py~
 models/logs/*
+data/
