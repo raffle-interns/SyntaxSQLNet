@@ -42,7 +42,7 @@ class ColPredictor(nn.Module):
         self.col_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, 1))
 
         self.cross_entropy = nn.CrossEntropyLoss()
-        pos_weight=300*torch.tensor(1).double()
+        pos_weight=torch.tensor(1).double()
         if gpu:
             self.cuda()
             pos_weight = pos_weight.cuda()
@@ -92,7 +92,7 @@ class ColPredictor(nn.Module):
 
         col_mask = length_to_mask(col_len).squeeze().to(cols.device)
         # number of columns might be different for each db, so we need to mask some of them
-        cols = cols.masked_fill_(col_mask, 0)
+        cols = cols.masked_fill_(col_mask, -1e10)
 
         return (num_cols, cols)
 
