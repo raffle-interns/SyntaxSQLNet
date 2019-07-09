@@ -97,18 +97,6 @@ class AndOrPredictor(nn.Module):
         
         return accuracy.detach().cpu().numpy()
 
-        
-    def check_acc(self, score, truth):
-        err = 0
-        B = len(score)
-        pred = []
-        for b in range(B):
-            pred.append(np.argmax(score[b].data.cpu().numpy()))
-        for b, (p, t) in enumerate(zip(pred, truth)):
-            if p != t:
-                err += 1
-
-        return err
 
 
 if __name__ == '__main__':

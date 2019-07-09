@@ -7,14 +7,18 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.lstm import PackedLSTM
 from utils.attention import ConditionalAttention
 from utils.utils import length_to_mask
+from utils.dataloader import SpiderDataset, try_tensor_collate_fn
+from embedding.embeddings import GloveEmbedding
+from torch.utils.data import DataLoader
 
 class ColPredictor(nn.Module):
-    def __init__(self, N_word, hidden_dim, num_layers, gpu=True, use_hs=True, max_num_cols=6):
+    def __init__(self, N_word, hidden_dim, num_layers, gpu=False, use_hs=True, max_num_cols=6):
         super(ColPredictor, self).__init__()
 
         self.hidden_dim = hidden_dim
         self.gpu = gpu
         self.use_hs = use_hs
+        self.col_pad_token =-10000
 
         self.q_lstm = PackedLSTM(input_size=N_word, hidden_size=hidden_dim//2,
                               num_layers=num_layers, batch_first=True,
@@ -42,7 +46,7 @@ class ColPredictor(nn.Module):
         self.col_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, 1))
 
         self.cross_entropy = nn.CrossEntropyLoss()
-        pos_weight=300*torch.tensor(1).double()
+        pos_weight=torch.tensor(1).double()
         if gpu:
             self.cuda()
             pos_weight = pos_weight.cuda()
@@ -92,16 +96,17 @@ class ColPredictor(nn.Module):
 
         col_mask = length_to_mask(col_len).squeeze().to(cols.device)
         # number of columns might be different for each db, so we need to mask some of them
-        cols = cols.masked_fill_(col_mask, 0)
+        cols = cols.masked_fill_(col_mask, self.col_pad_token)
 
         return (num_cols, cols)
 
 
     def process_batch(self, batch, embedding):
+
         q_emb_var, q_len = embedding(batch['question'])
+
         hs_emb_var, hs_len = embedding.get_history_emb(batch['history'])
         batch_size = len(q_len)
-        #kw_emb_var, kw_len = embedding.get_history_emb(batch_size*[['where', 'order by', 'group by']])
         col_emb_var, col_len, col_name_len = embedding.get_columns_emb(batch['columns_all'])
 
         batch_size, num_cols_in_db, col_name_lens, embedding_dim = col_emb_var.shape
@@ -133,12 +138,16 @@ class ColPredictor(nn.Module):
         if col_score.dtype != torch.float64:
             col_score = col_score.double()
             col_num_score = col_num_score.double()
-        col_num_truth = col_num_truth.to(col_num_score.device)
+        col_num_truth = col_num_truth.to(col_num_score.device)-1
         col_truth = col_truth.to(col_score.device)
+
+        mask = col_score != self.col_pad_token
+
         # Add cross entropy loss over the number of keywords
         loss += self.cross_entropy(col_num_score, col_num_truth)
         # And binary cross entropy over the keywords predicted
-        loss += self.bce_logit(col_score, col_truth)
+
+        loss += self.bce_logit(col_score[mask], col_truth[mask])
 
         return loss
 
@@ -181,14 +190,13 @@ class ColPredictor(nn.Module):
 
 
 if __name__ == '__main__':
+    
+    embedding = GloveEmbedding(path='data/'+'glove.6B.50d.txt')
+    spider_train = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", "distinct", '-', ' / ', ' + '])
+    train_set = spider_train.generate_column_dataset()
+    dl_train = DataLoader(train_set, batch_size=12, collate_fn=try_tensor_collate_fn)
+    model = ColPredictor(N_word=50, hidden_dim=30, num_layers=2, gpu=False,max_num_cols=3)
+    for i, batch in enumerate(dl_train):
 
-    q_emb_var = torch.rand(3, 10, 30)
-    q_len = np.array([8, 7, 10])
-    hs_emb_var = torch.rand(3, 5, 30)
-    hs_len = np.array([4, 2, 5])
-    col_emb_var = torch.rand(3*20, 4, 30)
-    col_len = np.array([7, 5, 6])
-    col_name_len = np.array([2, 2, 3, 2, 2, 4, 3, 2, 1, 2, 2, 3, 1, 2, 3, 4, 4, 4, 2, 3, 2, 2, 4, 3, 2, 3, 2, 2, 4, 3,2, 2, 3, 2, 2, 4, 3, 2, 1, 2, 2, 3, 1, 2, 3, 4, 4, 4, 2, 3, 2, 2, 4, 3, 2, 3, 2, 2, 4, 3])
+            prediction = model.process_batch(batch, embedding)
 
-    colpred = ColPredictor(N_word=30, hidden_dim=30, num_layers=2, gpu=False)
-    colpred(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len)
