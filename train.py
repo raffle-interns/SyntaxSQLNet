@@ -39,7 +39,7 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
             optimizer.step()
 
             train_loss += [loss.detach().cpu().numpy()]
-            #some of the models returns two accuracies
+            #some of the models return two accuracies
             if isinstance(accuracy, tuple):
                 accuracy_num, accuracy = accuracy
                 prediction_num, prediction = prediction
@@ -50,11 +50,9 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
 
         train_writer.add_scalar('loss', np.mean(train_loss), epoch)
         train_writer.add_scalar('accuracy', np.mean(accuracy_train), epoch)
-        #train_writer.add_histogram('predictions',predictions_train, epoch)
 
         if len(accuracy_num_train)>0:
             train_writer.add_scalar('accuracy_num', np.mean(accuracy_num_train), epoch)
-
 
         model.eval()
         val_loss = []
@@ -64,9 +62,7 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
         for batch in iter(validation_dataloader):
 
             prediction = model.process_batch(batch, embedding)
-
             accuracy = model.accuracy(prediction, batch)
-
             val_loss += [loss.detach().cpu().numpy()]
 
             if isinstance(accuracy, tuple):
@@ -77,9 +73,7 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
             accuracy_val += [accuracy]
             predictions_val += [prediction.detach().cpu().numpy()]
 
-
         val_writer.add_scalar('loss', np.mean(val_loss), epoch)
-
         val_writer.add_scalar('accuracy', np.mean(accuracy_val), epoch)
         
         if len(accuracy_num_train)>0:
@@ -102,8 +96,9 @@ if __name__ == '__main__':
     emb = GloveEmbedding(path='data/'+'glove.6B.50d.txt')
     spider_train = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", "distinct", '-', ' / ', ' + '])
     spider_dev = SpiderDataset(data_path='data/'+'dev.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", "distinct", '-', ' / ', ' + '])
-    
-    
+    model_choices = ['column','keyword','andor','agg','op','having','desasc']
+    models = [ColPredictor, KeyWordPredictor, AndOrPredictor, AggPredictor, OpPredictor, HavingPredictor, DesAscLimitPredictor]
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_layers', default=2, type=int)
     parser.add_argument('--lr', default=0.001, type=float)
@@ -112,54 +107,23 @@ if __name__ == '__main__':
     parser.add_argument('--name_postfix',default='', type=str)
     parser.add_argument('--use_gpu', default=True, type=bool)
     parser.add_argument('--hidden_dim', default=30, type=int)
-    parser.add_argument('--model', choices=['column','keyword','andor','agg','op','having','desasc'], default='having')
+    parser.add_argument('--model', choices=model_choices, default='column')
     args = parser.parse_args()
-	
-    #if args.model in models.keys():
-    #doesn't work unfortunately
-    #    model=models[args.model](N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
-    #    train_set = spider_train.generate_column_dataset()
-    #    validation_set = spider_dev.generate_column_dataset()
 
-    if args.model == 'column':
-        model = ColPredictor(N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
-        train_set = spider_train.generate_column_dataset()
-        validation_set = spider_dev.generate_column_dataset()
+    # Select appropriate model to train
+    model_idx = model_choices.index(args.model)
+    model = models[model_idx](N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
+
+    # Generate appropriate datasets
+    func_name = 'generate_' + model_choices[model_idx] + '_dataset'
+    train_set = getattr(spider_train, func_name)()
+    validation_set = getattr(spider_dev, func_name)()
     
-    elif args.model == 'keyword':
-        model = KeyWordPredictor(N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
-        train_set = spider_train.generate_keyword_dataset()
-        validation_set = spider_dev.generate_keyword_dataset()
-        
-    elif args.model == 'andor':
-        model = AndOrPredictor(N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
-        train_set = spider_train.generate_andor_dataset()
-        validation_set = spider_dev.generate_andor_dataset()
-
-    elif args.model == 'agg':
-        model = AggPredictor(N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
-        train_set = spider_train.generate_agg_dataset()
-        validation_set = spider_dev.generate_agg_dataset()
-    
-    elif args.model == 'op':
-        model = OpPredictor(N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
-        train_set = spider_train.generate_op_dataset()
-        validation_set = spider_dev.generate_op_dataset()
-                        
-    elif args.model == 'having':
-        model = HavingPredictor(N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
-        train_set = spider_train.generate_having_dataset()
-        validation_set = spider_dev.generate_having_dataset()
-
-    elif args.model == 'desasc':
-        model = DesAscLimitPredictor(N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
-        train_set = spider_train.generate_desasc_dataset()
-        validation_set = spider_dev.generate_desasc_dataset()
-        
-        
+    # Initialize data loaders
     dl_train = DataLoader(train_set, batch_size=args.batch_size, collate_fn=try_tensor_collate_fn)
     dl_validation = DataLoader(validation_set, batch_size=len(validation_set), collate_fn=try_tensor_collate_fn)
 
+    # Train our model
     train(model, dl_train, dl_validation, emb, 
             name=f'{args.model}__num_layers={args.num_layers}__lr={args.lr}__epoch={args.num_epochs}__{args.name_postfix}', 
             num_epochs=args.num_epochs,

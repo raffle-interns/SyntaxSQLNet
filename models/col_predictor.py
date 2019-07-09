@@ -96,14 +96,9 @@ class ColPredictor(nn.Module):
 
         col_mask = length_to_mask(col_len).squeeze().to(cols.device)
         # number of columns might be different for each db, so we need to mask some of them
-<<<<<<< HEAD
         cols = cols.masked_fill_(col_mask, self.col_pad_token)
-=======
-        cols = cols.masked_fill_(col_mask, -1e10)
->>>>>>> f19d400b8d70ba73a2837f9d35a897f136c46ec1
 
         return (num_cols, cols)
-
 
     def process_batch(self, batch, embedding):
 
