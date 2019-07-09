@@ -64,12 +64,13 @@ class GeneralAttention(Attention):
         key = key.permute(0,2,1) #[batch_size, hidden_dim, seq_len2]
         attn = self.W(query).matmul(key) #[batch_size, seq_len1, seq_len2]
 
-        #We might have to mask some of the input, if we have padding
+        # We might have to mask some of the input, if we have padding
         if mask is not None:
             attn.masked_fill_(mask,-float('inf'))
 
         attn = attn.permute(0,2,1) #[batch_size, seq_len2, seq_len1]
-        #Softmax over the seq_len1 dimension
+
+        # Softmax over the seq_len1 dimension
         attention_weights = self.softmax(attn) 
 
         return attention_weights

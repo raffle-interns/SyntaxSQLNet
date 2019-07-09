@@ -6,18 +6,13 @@ from tqdm import tqdm
 from utils.dataloader import SpiderDataset, try_tensor_collate_fn
 from embedding.embeddings import GloveEmbedding
 
-
 def train(model, train_dataloader, validation_dataloader, embedding, name="", num_epochs=1, lr=0.001):
-
     train_writer = SummaryWriter(log_dir=f'logs/{name}_train')
     val_writer = SummaryWriter(log_dir=f'logs/{name}_val')
     optimizer = Adam(model.parameters(), lr=lr)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
     embedding = embedding.to(device)
-
-    if device == torch.device('cuda'):
-        model.cuda()
+    if device == torch.device('cuda'): model.cuda()
 
     for epoch in tqdm(range(num_epochs)):
         model.train()
@@ -27,19 +22,16 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
         predictions_train = []
         for i, batch in enumerate(train_dataloader):
 
+            # Backpropagate and compute accuracy
             optimizer.zero_grad()
-
             prediction = model.process_batch(batch, embedding)
-
             loss = model.loss(prediction, batch)
             loss.backward()
-
             accuracy = model.accuracy(prediction, batch)
-
             optimizer.step()
-
             train_loss += [loss.detach().cpu().numpy()]
-            #some of the models return two accuracies
+
+            # Some models return two accuracies
             if isinstance(accuracy, tuple):
                 accuracy_num, accuracy = accuracy
                 prediction_num, prediction = prediction
@@ -107,7 +99,7 @@ if __name__ == '__main__':
     parser.add_argument('--name_postfix',default='', type=str)
     parser.add_argument('--use_gpu', default=True, type=bool)
     parser.add_argument('--hidden_dim', default=30, type=int)
-    parser.add_argument('--model', choices=model_choices, default='column')
+    parser.add_argument('--model', choices=model_choices, default='having')
     args = parser.parse_args()
 
     # Select appropriate model to train

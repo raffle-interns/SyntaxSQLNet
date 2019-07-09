@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))    
 from utils.lstm import PackedLSTM
 from utils.attention import ConditionalAttention
-
+from models.base_predictor import BasePredictor
 
 class OpPredictor(nn.Module):
     def __init__(self, N_word, hidden_dim, num_layers, gpu=True, use_hs=True, num_ops=11):

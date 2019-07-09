@@ -6,18 +6,17 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))    
 from utils.lstm import PackedLSTM
 from utils.attention import ConditionalAttention
+from models.base_predictor import BasePredictor
 
-
-class AggPredictor(nn.Module):
+class AggPredictor(BasePredictor):
     """
     This module is identical to OpPredictor
     """
-    def __init__(self, N_word, hidden_dim, num_layers, gpu=True, use_hs=True, num_agg=6):
-        super(AggPredictor, self).__init__()
-        self.hidden_dim = hidden_dim
-        self.gpu = gpu
-        self.use_hs = use_hs
+    def __init__(self, num_agg=6, *args, **kwargs):
+        self.num_agg = num_agg
+        super(AggPredictor, self).__init__(*args, **kwargs, name='agg')
 
+    def construct(self, N_word, hidden_dim, num_layers, gpu, use_hs):
         self.q_lstm = PackedLSTM(input_size=N_word, hidden_size=hidden_dim//2,
                 num_layers=num_layers, batch_first=True,
                 dropout=0.3, bidirectional=True)
@@ -30,29 +29,17 @@ class AggPredictor(nn.Module):
                 num_layers=num_layers, batch_first=True,
                 dropout=0.3, bidirectional=True)
 
-
-        #################
-        # Number of agg #
-        #################
-
+        # Number of aggregators
         self.q_cs_num = ConditionalAttention(hidden_dim = hidden_dim, use_bag_of_word=True)
         self.hs_cs_num = ConditionalAttention(hidden_dim = hidden_dim, use_bag_of_word=True)
         self.W_cs_num = nn.Linear(in_features = hidden_dim, out_features = hidden_dim)
         self.op_num_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, 2))
 
-        #######
-        # agg #
-        #######
-
+        # Aggregators
         self.q_cs = ConditionalAttention(hidden_dim = hidden_dim, use_bag_of_word=True)
         self.hs_cs = ConditionalAttention(hidden_dim = hidden_dim, use_bag_of_word=True)
         self.W_cs = nn.Linear(in_features = hidden_dim, out_features = hidden_dim)
-        self.op_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, num_agg)) #for 5 aggregators
-
-        
-        self.cross_entropy = nn.CrossEntropyLoss()
-        if gpu:
-            self.cuda()
+        self.op_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, self.num_agg)) # for 5 aggregators
 
     def forward(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, col_idx):
         """
@@ -120,102 +107,4 @@ class AggPredictor(nn.Module):
 
         agg = self(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, col_idx )
 
-        return agg  
-
-    def loss(self, agg_prediction, batch):
-
-        agg_truth = batch['agg']
-
-        agg_truth = agg_truth.to(agg_prediction.device)
-
-        # Add cross entropy loss over the number of keywords
-        loss = self.cross_entropy(agg_prediction, agg_truth.long().squeeze())
-
-        return loss
-
-
-
-    def accuracy(self, agg_prediction, batch):
-
-        agg_truth =  batch['agg']
-        batch_size = len(agg_truth)
-        
-        agg_truth = agg_truth.to(agg_prediction.device).squeeze().long() 
-
-        #predict the number of columns as the argmax of the scores
-        agg_prediction = torch.argmax(agg_prediction, dim=1)
-        
-        
-        accuracy = (agg_prediction==agg_truth).sum().float()/batch_size
-        
-        return accuracy.detach().cpu().numpy()
-
-
-
-    # def loss(self, score, truth):
-    #     loss = 0
-    #     B = len(truth)
-    #     agg_num_score, agg_score = score
-    #     #loss for the column number
-    #     truth_num = [len(t) for t in truth] # double check truth format and for test cases
-    #     data = torch.from_numpy(np.array(truth_num))
-    #     truth_num_var = Variable(data.cuda())
-    #     loss += self.CE(agg_num_score, truth_num_var)
-    #     #loss for the key words
-    #     T = len(agg_score[0])
-    #     truth_prob = np.zeros((B, T), dtype=np.float32)
-    #     for b in range(B):
-    #         truth_prob[b][truth[b]] = 1
-    #     data = torch.from_numpy(truth_prob)
-    #     truth_var = Variable(data.cuda())
-    #     #loss += self.mlsml(agg_score, truth_var)
-    #     #loss += self.bce_logit(agg_score, truth_var) # double check no sigmoid
-    #     pred_prob = self.sigm(agg_score)
-    #     bce_loss = -torch.mean( 3*(truth_var * \
-    #             torch.log(pred_prob+1e-10)) + \
-    #             (1-truth_var) * torch.log(1-pred_prob+1e-10) )
-    #     loss += bce_loss
-
-    #     return loss
-
-
-    def check_acc(self, score, truth):
-        num_err, err, tot_err = 0, 0, 0
-        B = len(truth)
-        pred = []
-        agg_num_score, agg_score = [x.data.cpu().numpy() for x in score]
-        for b in range(B):
-            cur_pred = {}
-            agg_num = np.argmax(agg_num_score[b]) #double check
-            cur_pred['agg_num'] = agg_num
-            cur_pred['agg'] = np.argsort(-agg_score[b])[:agg_num]
-            pred.append(cur_pred)
-
-        for b, (p, t) in enumerate(zip(pred, truth)):
-            agg_num, agg = p['agg_num'], p['agg']
-            flag = True
-            if agg_num != len(t): # double check truth format and for test cases
-                num_err += 1
-                flag = False
-            if flag and set(agg) != set(t):
-                err += 1
-                flag = False
-            if not flag:
-                tot_err += 1
-
-        return np.array((num_err, err, tot_err))
-
-
-if __name__ == '__main__':
-
-    q_emb_var = torch.rand(3,10,30)
-    q_len = np.array([8,7,10])
-    hs_emb_var = torch.rand(3,5,30)
-    hs_len = np.array([4,2,5])
-    col_emb_var = torch.rand(3*20,4,30)
-    col_len = np.array([7,5,6])
-    col_name_len = np.array([2,2,3,2,2,4,3,2,1,2,2,3,1,2,3,4,4,4])
-    col_idx = np.array([4,2,3])
-
-    aggpred = AggPredictor(N_word=30, hidden_dim=30, num_layers=2, gpu=False)
-    print(aggpred(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, col_idx))
+        return agg
