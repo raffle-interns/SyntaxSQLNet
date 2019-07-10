@@ -10,7 +10,7 @@ from models.base_predictor import BasePredictor
 
 class AndOrPredictor(BasePredictor):
     def __init__(self, *args, **kwargs):
-        super(AndOrPredictor, self).__init__(*args, **kwargs, name='andor')
+        super(AndOrPredictor, self).__init__(*args, **kwargs)
 
     def construct(self, N_word, hidden_dim, num_layers, gpu, use_hs):
         self.q_lstm = PackedLSTM(input_size=N_word, hidden_size=hidden_dim//2,

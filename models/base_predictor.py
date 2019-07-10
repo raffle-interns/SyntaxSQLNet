@@ -6,16 +6,17 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))    
 from utils.lstm import PackedLSTM
 from utils.attention import ConditionalAttention
+from models import model_list
 
 class BasePredictor(nn.Module):
-    def __init__(self, N_word, hidden_dim, num_layers, gpu=True, use_hs=True, name=None):
+    def __init__(self, N_word, hidden_dim, num_layers, gpu=True, use_hs=True):
         super(BasePredictor, self).__init__()
         self.N_word = N_word
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.gpu = gpu
         self.use_hs = use_hs
-        self.name = name
+        self.name = model_list.models_inverse[self.__class__.__name__]
         self.cross_entropy = nn.CrossEntropyLoss()
         self.construct(N_word, hidden_dim, num_layers, gpu, use_hs)
         if gpu: self.cuda()
@@ -30,6 +31,7 @@ class BasePredictor(nn.Module):
         pass
 
     def loss(self, prediction, batch):
+        print(self.__class__.__name__)
         truth = batch[self.name].to(prediction.device)
         return self.cross_entropy(prediction, truth.long().squeeze())
 

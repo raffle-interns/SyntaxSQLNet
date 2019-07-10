@@ -1,10 +1,13 @@
-from torch.utils.tensorboard import SummaryWriter
-import torch
-from torch.optim import Adam
 import numpy as np
+import torch
+from torch.utils.tensorboard import SummaryWriter
+from torch.optim import Adam
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 from utils.dataloader import SpiderDataset, try_tensor_collate_fn
 from embedding.embeddings import GloveEmbedding
+from models import model_list
+import argparse
 
 def train(model, train_dataloader, validation_dataloader, embedding, name="", num_epochs=1, lr=0.001):
     train_writer = SummaryWriter(log_dir=f'logs/{name}_train')
@@ -73,44 +76,31 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
 
 
 if __name__ == '__main__':
-    from models.keyword_predictor import KeyWordPredictor
-    from models.col_predictor import ColPredictor
-    from models.andor_predictor import AndOrPredictor
-    from models.agg_predictor import AggPredictor
-    from models.op_predictor import OpPredictor
-    from models.having_predictor import HavingPredictor
-    from models.desasc_limit_predictor import DesAscLimitPredictor
-    from embedding.embeddings import GloveEmbedding        
-    from utils.dataloader import  SpiderDataset, try_tensor_collate_fn
-    from torch.utils.data import DataLoader
-    import argparse
-   
+    # Load pre-trained embeddings and dataset
     emb = GloveEmbedding(path='data/'+'glove.6B.50d.txt')
     spider_train = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", "distinct", '-', ' / ', ' + '])
     spider_dev = SpiderDataset(data_path='data/'+'dev.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", "distinct", '-', ' / ', ' + '])
-    model_choices = ['column','keyword','andor','agg','op','having','desasc']
-    models = [ColPredictor, KeyWordPredictor, AndOrPredictor, AggPredictor, OpPredictor, HavingPredictor, DesAscLimitPredictor]
 
+    # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_layers', default=2, type=int)
     parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('--num_epochs',  default=3, type=int)
-    parser.add_argument('--batch_size', default=248, type=int)
+    parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--name_postfix',default='', type=str)
     parser.add_argument('--use_gpu', default=True, type=bool)
     parser.add_argument('--hidden_dim', default=30, type=int)
-    parser.add_argument('--model', choices=model_choices, default='having')
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='having')
     args = parser.parse_args()
 
     # Select appropriate model to train
-    model_idx = model_choices.index(args.model)
-    model = models[model_idx](N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
+    model = model_list.models[args.model](N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
 
     # Generate appropriate datasets
-    func_name = 'generate_' + model_choices[model_idx] + '_dataset'
+    func_name = 'generate_' + args.model + '_dataset'
     train_set = getattr(spider_train, func_name)()
     validation_set = getattr(spider_dev, func_name)()
-    
+
     # Initialize data loaders
     dl_train = DataLoader(train_set, batch_size=args.batch_size, collate_fn=try_tensor_collate_fn)
     dl_validation = DataLoader(validation_set, batch_size=len(validation_set), collate_fn=try_tensor_collate_fn)
