@@ -10,14 +10,14 @@ from utils.utils import length_to_mask
 from utils.dataloader import SpiderDataset, try_tensor_collate_fn
 from embedding.embeddings import GloveEmbedding
 from torch.utils.data import DataLoader
+from models.base_predictor import BasePredictor
 
-class ColPredictor(nn.Module):
-    def __init__(self, N_word, hidden_dim, num_layers, gpu=False, use_hs=True, max_num_cols=6):
-        super(ColPredictor, self).__init__()
+class ColPredictor(BasePredictor):
+    def __init__(self, max_num_cols=6, *args, **kwargs):
+        self.num = max_num_cols
+        super(ColPredictor, self).__init__(*args, **kwargs)
 
-        self.hidden_dim = hidden_dim
-        self.gpu = gpu
-        self.use_hs = use_hs
+    def construct(self, N_word, hidden_dim, num_layers, gpu, use_hs):  
         self.col_pad_token =-10000
 
         self.q_lstm = PackedLSTM(input_size=N_word, hidden_size=hidden_dim//2,
@@ -32,24 +32,19 @@ class ColPredictor(nn.Module):
                                 num_layers=num_layers, batch_first=True,
                                 dropout=0.3, bidirectional=True)
 
-        #### Number of columns ####
-
+        # Number of columns
         self.q_col_num = ConditionalAttention(hidden_dim=hidden_dim, use_bag_of_word=True)
         self.hs_col_num = ConditionalAttention(hidden_dim=hidden_dim, use_bag_of_word=True)
+        self.col_num_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, self.num)) # num of cols: 1-6
 
-        self.col_num_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, max_num_cols))  # num of cols: 1-6
-
-        #### Columns ####
+        # Columns
         self.q_col = ConditionalAttention(hidden_dim=hidden_dim, use_bag_of_word=False)
         self.hs_col = ConditionalAttention(hidden_dim=hidden_dim, use_bag_of_word=False)
         self.W_col = nn.Linear(in_features=hidden_dim, out_features=hidden_dim)
         self.col_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, 1))
 
-        self.cross_entropy = nn.CrossEntropyLoss()
-        pos_weight=torch.tensor(1).double()
-        if gpu:
-            self.cuda()
-            pos_weight = pos_weight.cuda()
+        pos_weight = torch.tensor(1).double()
+        if self.gpu: pos_weight = pos_weight.cuda()
         self.bce_logit = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 		
     def forward(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len):
@@ -73,6 +68,7 @@ class ColPredictor(nn.Module):
         hs_enc,_ = self.hs_lstm(hs_emb_var, hs_len)  # [batch_size, history_seq_len, hidden_dim]
         _, col_enc = self.col_lstm(col_emb_var, col_name_len) # [batch_size*num_cols_in_db, hidden_dim]
         col_enc = col_enc.reshape(batch_size, col_len.max(), self.hidden_dim) # [batch_size, num_cols_in_db, hidden_dim]
+        
         #############################
         # Predict number of columns #
         #############################
@@ -93,29 +89,25 @@ class ColPredictor(nn.Module):
         H_col = self.W_col(col_enc)  # [batch_size, num_cols_in_db, hidden_dim]
 
         cols = self.col_out(H_q_col + int(self.use_hs)*H_hs_col + H_col).squeeze()  # [batch_size, num_cols_in_db]
-
         col_mask = length_to_mask(col_len).squeeze().to(cols.device)
-        # number of columns might be different for each db, so we need to mask some of them
+
+        # Number of columns might be different for each db, so we need to mask some of them
         cols = cols.masked_fill_(col_mask, self.col_pad_token)
 
         return (num_cols, cols)
 
     def process_batch(self, batch, embedding):
-
         q_emb_var, q_len = embedding(batch['question'])
-
         hs_emb_var, hs_len = embedding.get_history_emb(batch['history'])
         batch_size = len(q_len)
         col_emb_var, col_len, col_name_len = embedding.get_columns_emb(batch['columns_all'])
-
         batch_size, num_cols_in_db, col_name_lens, embedding_dim = col_emb_var.shape
-        #Combine batch_size and num_cols_in_db into the first dimension, since this is what out model expects 
+
+        # Combine batch_size and num_cols_in_db into the first dimension, since this is what out model expects 
         col_emb_var = col_emb_var.reshape(batch_size*num_cols_in_db, col_name_lens, embedding_dim) 
         col_name_len = col_name_len.reshape(-1)
 
-        num_cols, cols = self(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len )
-
-        return (num_cols, cols)    
+        return self(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len )
 
     def loss(self, prediction, batch):
         loss = 0
@@ -144,8 +136,8 @@ class ColPredictor(nn.Module):
 
         # Add cross entropy loss over the number of keywords
         loss += self.cross_entropy(col_num_score, col_num_truth)
-        # And binary cross entropy over the keywords predicted
 
+        # And binary cross entropy over the keywords predicted
         loss += self.bce_logit(col_score[mask], col_truth[mask])
 
         return loss
@@ -166,36 +158,24 @@ class ColPredictor(nn.Module):
             col_num_score = col_num_score.reshape(-1, 4)
             col_score = col_score.reshape(-1, 3)
 
-        # TODO:lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
         if col_score.dtype != torch.float64:
             col_score = col_score.double()
             col_num_score = col_num_score.double()
         col_num_truth = col_num_truth.to(col_num_score.device)
         col_truth = col_truth.to(col_score.device)
 
-        # predict the number of columns as the argmax of the scores
+        # Predict the number of columns as the argmax of the scores
         kw_num_prediction = torch.argmax(col_num_score, dim=1)
         accuracy_num = (kw_num_prediction+1 == col_num_truth).sum().float()/batch_size
 
         correct_keywords = 0
         for i in range(batch_size):
             num_kw = col_num_truth[i]
+
             # Compare the set of predicted keywords with target.
             # This should eliminate any ordering issues
             correct_keywords += set(torch.argsort(-col_truth[i, :])[:num_kw].cpu().numpy()) == set(torch.argsort(-col_score[i, :])[:num_kw].cpu().numpy())
         accuracy_kw = correct_keywords/batch_size
 
         return accuracy_num, accuracy_kw
-
-
-if __name__ == '__main__':
-    
-    embedding = GloveEmbedding(path='data/'+'glove.6B.50d.txt')
-    spider_train = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", "distinct", '-', ' / ', ' + '])
-    train_set = spider_train.generate_column_dataset()
-    dl_train = DataLoader(train_set, batch_size=12, collate_fn=try_tensor_collate_fn)
-    model = ColPredictor(N_word=50, hidden_dim=30, num_layers=2, gpu=False,max_num_cols=3)
-    for i, batch in enumerate(dl_train):
-
-            prediction = model.process_batch(batch, embedding)
-
