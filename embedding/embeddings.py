@@ -18,7 +18,7 @@ class PretrainedEmbedding(Module):
         vectors (numpy array): Matrix with all the embedding vectors
         trainable (bool): 
     """
-    def __init__(self, num_embeddings, embedding_dim, word2idx, vectors, trainable=False, use_column_cache=False):
+    def __init__(self, num_embeddings, embedding_dim, word2idx, vectors, trainable=False, use_column_cache=True):
         super(PretrainedEmbedding, self).__init__()
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim

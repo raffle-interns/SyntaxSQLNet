@@ -30,6 +30,7 @@ class PackedLSTM(Module):
         #filter out any lenghts of zero, since these just acts as padding 
         mask = lengths>0
         lengths_filtered = lengths[mask]
+        sequence_filtered = sequence[mask]
 
         #This is just copied from net_utils
         sort_perm = np.array(sorted(range(len(lengths_filtered)),
@@ -41,7 +42,7 @@ class PackedLSTM(Module):
             sort_perm = torch.tensor(sort_perm).long().cuda()
             sort_perm_inv = torch.tensor(sort_perm_inv).long().cuda()
 
-        lstm_inp = pack_padded_sequence(sequence[sort_perm],
+        lstm_inp = pack_padded_sequence(sequence_filtered[sort_perm],
                 sort_inp_len, batch_first=True)
 
         sort_ret_s, _ = self.lstm(lstm_inp, None)
