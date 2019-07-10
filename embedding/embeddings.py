@@ -5,7 +5,6 @@ from nltk.tokenize import word_tokenize
 import os
 from something.datascience.transforms.embeddings.sentence_embeddings.laser.laser import LaserSentenceEmbeddings
 
-
 class PretrainedEmbedding(Module):
     """
     Wrapper for pretrained embeddings. 
@@ -19,7 +18,7 @@ class PretrainedEmbedding(Module):
         vectors (numpy array): Matrix with all the embedding vectors
         trainable (bool): 
     """
-    def __init__(self, num_embeddings, embedding_dim, word2idx, vectors, trainable=False, use_column_cache=True):
+    def __init__(self, num_embeddings, embedding_dim, word2idx, vectors, trainable=False, use_column_cache=False):
         super(PretrainedEmbedding, self).__init__()
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
@@ -49,31 +48,46 @@ class PretrainedEmbedding(Module):
         sentences = [str.lower(sentence) for sentence in sentences]
 
         batch_size = len(sentences)
+
         # Convert list of sentences to list of list of tokens
         # TODO: should we use shlex to split, to have words in quotes stay as one word? 
-        #      maybe these would just be unkown words though
-        
+        # maybe these would just be unkown words though
         sentences_words = [word_tokenize(sentence) for sentence in sentences]
-        
         lenghts = [len(sentence) for sentence in sentences_words]
         max_len = max(lenghts)
 
         # Use 0 as padding token
-        indecies = torch.zeros(batch_size, max_len).long().to(self.embedding.weight.device)        
+        indicies = torch.zeros(batch_size, max_len).long().to(self.embedding.weight.device)
         
-        # Convert tokens to indecies
+        # Convert tokens to indicies
         # TODO: chose more sensible unknown token instead of just using the first (".") token
         for i, sentence in enumerate(sentences_words):
             for j, word in enumerate(sentence):
-                indecies[i,j] = self.word2idx.get(word,0)
+                indicies[i,j] = self.word2idx.get(word,0)
+
         # TODO: pad tensors using pytorch instead of numpy?
-        word_embeddings = self.embedding(indecies)
+        word_embeddings = self.embedding(indicies)
 
         if mean_sequence:
             word_embeddings = torch.sum(word_embeddings,dim=1)/torch.tensor(lenghts).float().to(self.embedding.weight.device)
 
         return word_embeddings, np.asarray(lenghts)
-        
+
+    def embed_token(self, token):
+        """
+        Embeds a token that may or may not contain whitespaces and underscores.
+        Used to embed history in the get_history_emb function.
+        """
+        embs, words = [], token.split()
+        for word in words:
+            emb_list=[]
+            for element in word.split('_'):
+                emb,_ = self(element, mean_sequence=True)
+                emb_list.append(emb)
+            embs.append(torch.mean(torch.stack(emb_list), dim=0))
+
+        return torch.mean(torch.stack(embs), dim=0)
+
     def get_history_emb(self, histories):
         """
         Args:
@@ -92,7 +106,7 @@ class PretrainedEmbedding(Module):
         for i,history in enumerate(histories):
 
             for j, token in enumerate(history):
-                emb,_ = self(token, mean_sequence=True)
+                emb = self.embed_token(token)
                 embeddings[i,j,:] = emb
 
         return embeddings, np.asarray(lengths)
@@ -100,7 +114,7 @@ class PretrainedEmbedding(Module):
     def get_columns_emb(self, columns):
         """
         Args:
-            columns list(list(list(str))): nested list, where indecies corresponds to [i][j][k], i=batch, j=column, k=word  
+            columns list(list(str)): nested list, where indicies corresponds to [i][j][k], i=batch, j=column, k=word  
         
         """
         batch_size = len(columns)
@@ -113,6 +127,7 @@ class PretrainedEmbedding(Module):
         max_len = max(lengths)
         max_col_name_len = max([max(col_name_len) for col_name_len in col_name_lengths])
 
+        # Embeddings will have shape (batch size, # of columns, # of words in col name, embedding dim)
         embeddings = torch.zeros(batch_size, max_len, max_col_name_len, self.embedding_dim).to(self.embedding.weight.device)
         col_name_lengths = np.zeros((batch_size, max_len))
 
