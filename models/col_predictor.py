@@ -103,7 +103,8 @@ class ColPredictor(BasePredictor):
         col_emb_var, col_len, col_name_len = embedding.get_columns_emb(batch['columns_all'])
         batch_size, num_cols_in_db, col_name_lens, embedding_dim = col_emb_var.shape
 
-        # Combine batch_size and num_cols_in_db into the first dimension, since this is what out model expects 
+        # Combine batch_size and num_cols_in_db into the first dimension, since this is what out model expects
+        # TODO: does this actually work?
         col_emb_var = col_emb_var.reshape(batch_size*num_cols_in_db, col_name_lens, embedding_dim) 
         col_name_len = col_name_len.reshape(-1)
 
@@ -125,7 +126,7 @@ class ColPredictor(BasePredictor):
             col_num_score = col_num_score.reshape(-1, 4)
             col_score = col_score.reshape(-1, 3)
 
-        # TODO:lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
         if col_score.dtype != torch.float64:
             col_score = col_score.double()
             col_num_score = col_num_score.double()
