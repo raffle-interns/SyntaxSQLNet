@@ -90,7 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('--name_postfix',default='', type=str)
     parser.add_argument('--use_gpu', default=True, type=bool)
     parser.add_argument('--hidden_dim', default=30, type=int)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='having')
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='keyword')
     args = parser.parse_args()
 
     # Select appropriate model to train

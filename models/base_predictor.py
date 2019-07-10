@@ -31,7 +31,6 @@ class BasePredictor(nn.Module):
         pass
 
     def loss(self, prediction, batch):
-        print(self.__class__.__name__)
         truth = batch[self.name].to(prediction.device)
         return self.cross_entropy(prediction, truth.long().squeeze())
 
