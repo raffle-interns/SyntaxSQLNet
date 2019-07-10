@@ -52,8 +52,8 @@ class PretrainedEmbedding(Module):
         # Convert list of sentences to list of list of tokens
         # TODO: should we use shlex to split, to have words in quotes stay as one word? 
         #      maybe these would just be unkown words though
+        
         sentences_words = [word_tokenize(sentence) for sentence in sentences]
-
         
         lenghts = [len(sentence) for sentence in sentences_words]
         max_len = max(lenghts)
@@ -155,8 +155,8 @@ class GloveEmbedding(PretrainedEmbedding):
             for idx, line in enumerate(f,1):
                 line = line.split()     
                 word2idx[line[0]] = idx
-                vectors += [line[1:]]
-
+                vectors += [np.asarray(line[1:],dtype=np.float)]
+            
             # Insert zero-embedding for unknown tokens at first index
             word2idx['<unknown>'] = 0
             vectors.insert(0, np.zeros(len(vectors[0])))
