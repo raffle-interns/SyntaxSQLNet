@@ -5,7 +5,6 @@ from models.agg_predictor import AggPredictor
 from models.op_predictor import OpPredictor
 from models.having_predictor import HavingPredictor
 from models.desasc_limit_predictor import DesAscLimitPredictor
-from models.value_predictor import ValuePredictor
 
-models = {'column': ColPredictor, 'keyword': KeyWordPredictor, 'andor': AndOrPredictor, 'agg': AggPredictor, 'op': OpPredictor, 'having': HavingPredictor, 'desasc': DesAscLimitPredictor, 'value': ValuePredictor}
-models_inverse = {'ColPredictor': 'column', 'KeyWordPredictor': 'keyword', 'AndOrPredictor': 'andor', 'AggPredictor': 'agg', 'OpPredictor': 'op', 'HavingPredictor': 'having', 'DesAscLimitPredictor': 'desasc', 'ValuePredictor': 'value'}
+models = {'column': ColPredictor, 'keyword': KeyWordPredictor, 'andor': AndOrPredictor, 'agg': AggPredictor, 'op': OpPredictor, 'having': HavingPredictor, 'desasc': DesAscLimitPredictor}
+models_inverse = {'ColPredictor': 'column', 'KeyWordPredictor': 'keyword', 'AndOrPredictor': 'andor', 'AggPredictor': 'agg', 'OpPredictor': 'op', 'HavingPredictor': 'having', 'DesAscLimitPredictor': 'desasc'}

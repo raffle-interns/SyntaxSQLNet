@@ -74,19 +74,13 @@ class PretrainedEmbedding(Module):
         return word_embeddings, np.asarray(lenghts)
 
     def embed_token(self, token):
-        embs = []
-        words = token.split()
+        embs, words = [], token.split()
         for word in words:
-            word.split('_')
-            emb,_ = self(word, mean_sequence=True)
+            emb,_ = self(word.split('_'), mean_sequence=True)
             embs.append(emb)
-        #mean this guy, he is a list
 
-        embs = torch.mean(torch.stack(embs), dim=0)
+        return torch.mean(torch.stack(embs), dim=0)
 
-        return embs
-
-    #Checkout this guy
     def get_history_emb(self, histories):
         """
         Args:
