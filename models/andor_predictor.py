@@ -54,4 +54,5 @@ class AndOrPredictor(BasePredictor):
     def process_batch(self, batch, embedding):
         q_emb_var, q_len = embedding(batch['question'])
         hs_emb_var, hs_len = embedding.get_history_emb(batch['history'])
+        
         return self(q_emb_var, q_len, hs_emb_var, hs_len)

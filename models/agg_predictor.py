@@ -73,6 +73,7 @@ class AggPredictor(BasePredictor):
         H_q_cs = self.q_cs(q_enc, col_emb, q_len) # [batch_size, hidden_dim]
         H_hs_cs = self.hs_cs(hs_enc, col_emb, hs_len) # [batch_size, hidden_dim]
         H_cs = self.W_cs(col_emb).squeeze() # [batch_size, hidden_dim]
+        
         return self.op_out(H_q_cs + int(self.use_hs)*H_hs_cs + H_cs) # [batch_size, self.num]
 
     def process_batch(self, batch, embedding):

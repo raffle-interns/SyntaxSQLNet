@@ -23,7 +23,7 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
         accuracy_num_train = []
         accuracy_train = []
         predictions_train = []
-        for i, batch in enumerate(train_dataloader):
+        for _, batch in enumerate(train_dataloader):
 
             # Backpropagate and compute accuracy
             optimizer.zero_grad()
@@ -37,7 +37,7 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
             # Some models return two accuracies
             if isinstance(accuracy, tuple):
                 accuracy_num, accuracy = accuracy
-                prediction_num, prediction = prediction
+                _, prediction = prediction
                 accuracy_num_train += [accuracy_num.detach().cpu().numpy()]
 
             accuracy_train += [accuracy]
@@ -62,7 +62,7 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
 
             if isinstance(accuracy, tuple):
                 accuracy_num, accuracy = accuracy
-                predictions_num, prediction = prediction
+                _, prediction = prediction
                 accuracy_num_val += [accuracy_num.detach().cpu().numpy()]
 
             accuracy_val += [accuracy]
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('--name_postfix',default='', type=str)
     parser.add_argument('--use_gpu', default=True, type=bool)
     parser.add_argument('--hidden_dim', default=30, type=int)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='keyword')
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='op')
     args = parser.parse_args()
 
     # Select appropriate model to train
