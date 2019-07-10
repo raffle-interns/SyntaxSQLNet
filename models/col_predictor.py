@@ -100,7 +100,6 @@ class ColPredictor(nn.Module):
 
         return (num_cols, cols)
 
-
     def process_batch(self, batch, embedding):
 
         q_emb_var, q_len = embedding(batch['question'])
