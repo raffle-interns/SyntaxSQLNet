@@ -76,8 +76,11 @@ class PretrainedEmbedding(Module):
     def embed_token(self, token):
         embs, words = [], token.split()
         for word in words:
-            emb,_ = self(word.split('_'), mean_sequence=True)
-            embs.append(emb)
+            emb_list=[]
+            for element in word.split('_'):
+                emb,_ = self(element, mean_sequence=True)
+                emb_list.append(emb)
+            embs.append(torch.mean(torch.stack(emb_list), dim=0))
 
         return torch.mean(torch.stack(embs), dim=0)
 
