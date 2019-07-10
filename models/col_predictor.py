@@ -44,7 +44,7 @@ class ColPredictor(BasePredictor):
         self.col_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, 1))
 
         pos_weight = torch.tensor(1).double()
-        if self.gpu: pos_weight = pos_weight.cuda()
+        if gpu: pos_weight = pos_weight.cuda()
         self.bce_logit = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 		
     def forward(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len):
