@@ -46,11 +46,11 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
                 accuracy_num_train += [accuracy_num.detach().cpu().numpy()]
 
             accuracy_train += [accuracy]
-            predictions_train += [prediction.detach().cpu().numpy()]
+            predictions_train += list(torch.argsort(-prediction)[:,0].detach().cpu().numpy())
 
         train_writer.add_scalar('loss', np.mean(train_loss), epoch)
         train_writer.add_scalar('accuracy', np.mean(accuracy_train), epoch)
-        #train_writer.add_histogram('predictions',predictions_train, epoch)
+        train_writer.add_histogram('predictions',np.asarray(predictions_train), epoch)
 
         if len(accuracy_num_train)>0:
             train_writer.add_scalar('accuracy_num', np.mean(accuracy_num_train), epoch)
@@ -75,13 +75,12 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
                 accuracy_num_val += [accuracy_num.detach().cpu().numpy()]
 
             accuracy_val += [accuracy]
-            predictions_val += [prediction.detach().cpu().numpy()]
-
+            predictions_val += list(torch.argsort(-prediction)[:,0].detach().cpu().numpy())
 
         val_writer.add_scalar('loss', np.mean(val_loss), epoch)
 
         val_writer.add_scalar('accuracy', np.mean(accuracy_val), epoch)
-        
+        val_writer.add_histogram('predictions',np.asarray(predictions_val), epoch)
         if len(accuracy_num_train)>0:
             val_writer.add_scalar('accuracy_num', np.mean(accuracy_num_val), epoch)
 
@@ -99,22 +98,24 @@ if __name__ == '__main__':
     from torch.utils.data import DataLoader
     import argparse
    
+        
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--num_layers', default=2, type=int)
+    parser.add_argument('--lr', default=0.0001, type=float)
+    parser.add_argument('--num_epochs',  default=30, type=int)
+    parser.add_argument('--batch_size', default=64, type=int)
+    parser.add_argument('--name_postfix',default='', type=str)
+    parser.add_argument('--use_gpu', default=True, type=bool)
+    parser.add_argument('--hidden_dim', default=30, type=int)
+    parser.add_argument('--model', choices=['column','keyword','andor','agg','op','having','desasc'], default='column')
+    args = parser.parse_args()
+	
+
     emb = GloveEmbedding(path='data/'+'glove.6B.50d.txt')
     spider_train = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", "distinct", '-', ' / ', ' + '])
     spider_dev = SpiderDataset(data_path='data/'+'dev.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", "distinct", '-', ' / ', ' + '])
     
-    
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--num_layers', default=2, type=int)
-    parser.add_argument('--lr', default=0.001, type=float)
-    parser.add_argument('--num_epochs',  default=3, type=int)
-    parser.add_argument('--batch_size', default=248, type=int)
-    parser.add_argument('--name_postfix',default='', type=str)
-    parser.add_argument('--use_gpu', default=True, type=bool)
-    parser.add_argument('--hidden_dim', default=30, type=int)
-    parser.add_argument('--model', choices=['column','keyword','andor','agg','op','having','desasc'], default='having')
-    args = parser.parse_args()
-	
+
     #if args.model in models.keys():
     #doesn't work unfortunately
     #    model=models[args.model](N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)

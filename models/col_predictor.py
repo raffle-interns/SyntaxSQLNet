@@ -10,6 +10,7 @@ from utils.utils import length_to_mask
 from utils.dataloader import SpiderDataset, try_tensor_collate_fn
 from embedding.embeddings import GloveEmbedding
 from torch.utils.data import DataLoader
+from utils.net_utils import col_name_encode
 
 class ColPredictor(nn.Module):
     def __init__(self, N_word, hidden_dim, num_layers, gpu=False, use_hs=True, max_num_cols=6):
@@ -46,7 +47,7 @@ class ColPredictor(nn.Module):
         self.col_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, 1))
 
         self.cross_entropy = nn.CrossEntropyLoss()
-        pos_weight=torch.tensor(1).double()
+        pos_weight=torch.tensor(3).double()
         if gpu:
             self.cuda()
             pos_weight = pos_weight.cuda()
@@ -73,6 +74,7 @@ class ColPredictor(nn.Module):
         hs_enc,_ = self.hs_lstm(hs_emb_var, hs_len)  # [batch_size, history_seq_len, hidden_dim]
         _, col_enc = self.col_lstm(col_emb_var, col_name_len) # [batch_size*num_cols_in_db, hidden_dim]
         col_enc = col_enc.reshape(batch_size, col_len.max(), self.hidden_dim) # [batch_size, num_cols_in_db, hidden_dim]
+        col_enc2, _ = col_name_encode(col_emb_var, col_name_len, col_len, self.col_lstm.lstm)
         #############################
         # Predict number of columns #
         #############################
@@ -96,11 +98,7 @@ class ColPredictor(nn.Module):
 
         col_mask = length_to_mask(col_len).squeeze().to(cols.device)
         # number of columns might be different for each db, so we need to mask some of them
-<<<<<<< HEAD
         cols = cols.masked_fill_(col_mask, self.col_pad_token)
-=======
-        cols = cols.masked_fill_(col_mask, -1e10)
->>>>>>> f19d400b8d70ba73a2837f9d35a897f136c46ec1
 
         return (num_cols, cols)
 
@@ -152,7 +150,7 @@ class ColPredictor(nn.Module):
         # And binary cross entropy over the keywords predicted
 
         loss += self.bce_logit(col_score[mask], col_truth[mask])
-
+        #loss += bce_loss
         return loss
 
     def accuracy(self, prediction, batch):
