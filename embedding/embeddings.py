@@ -5,7 +5,6 @@ from nltk.tokenize import word_tokenize
 import os
 from something.datascience.transforms.embeddings.sentence_embeddings.laser.laser import LaserSentenceEmbeddings
 
-
 class PretrainedEmbedding(Module):
     """
     Wrapper for pretrained embeddings. 
@@ -73,7 +72,21 @@ class PretrainedEmbedding(Module):
             word_embeddings = torch.sum(word_embeddings,dim=1)/torch.tensor(lenghts).float().to(self.embedding.weight.device)
 
         return word_embeddings, np.asarray(lenghts)
-        
+
+    def embed_token(self, token):
+        embs = []
+        words = token.split()
+        for word in words:
+            word.split('_')
+            emb,_ = self(word, mean_sequence=True)
+            embs.append(emb)
+        #mean this guy, he is a list
+
+        embs = torch.mean(torch.stack(embs), dim=0)
+
+        return embs
+
+    #Checkout this guy
     def get_history_emb(self, histories):
         """
         Args:
@@ -92,7 +105,7 @@ class PretrainedEmbedding(Module):
         for i,history in enumerate(histories):
 
             for j, token in enumerate(history):
-                emb,_ = self(token, mean_sequence=True)
+                emb = self.embed_token(token)
                 embeddings[i,j,:] = emb
 
         return embeddings, np.asarray(lengths)
