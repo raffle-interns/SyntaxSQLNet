@@ -576,7 +576,7 @@ class DataBase():
         """Returns a list of [column_name, column_type, table] for all columns in the table"""
         lst = []
         for table in self.tables:
-            lst += [[col_name, col_type, table.table_name] for col_name, col_type in zip(table.columns, table.column_types)]
+            lst += [[col_type, table.table_name,col_name] for col_name, col_type in zip(table.columns, table.column_types)]
         return lst
 
     def get_column(self, column, table):
@@ -617,7 +617,7 @@ class Column():
         return str(self)
 
     def to_list(self):
-        return [self.column_name, self.column_type, self.table_name]
+        return [self.column_type, self.table_name,self.column_name]
         
 if __name__ == "__main__":
     import json

@@ -33,6 +33,8 @@ def col_name_encode(name_inp_var, name_len, col_len, enc_lstm):
     #The embedding of a column name is the last state of its LSTM output.
     mask = name_len>0
     name_len = name_len[mask]
+    name_inp_var = name_inp_var[torch.tensor(mask)]    
+
     name_hidden, _ = run_lstm(enc_lstm, name_inp_var, name_len)
     name_out = name_hidden[tuple(range(len(name_len))), name_len-1]
     ret = torch.FloatTensor(

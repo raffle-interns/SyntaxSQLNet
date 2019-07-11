@@ -30,7 +30,7 @@ class PackedLSTM(Module):
         #filter out any lenghts of zero, since these just acts as padding 
         mask = lengths>0
         lengths_filtered = lengths[mask]
-        sequence_filtered = sequence[mask]
+        sequence_filtered = sequence[torch.tensor(mask)]
 
         #This is just copied from net_utils
         sort_perm = np.array(sorted(range(len(lengths_filtered)),
