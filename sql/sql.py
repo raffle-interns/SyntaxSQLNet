@@ -360,7 +360,7 @@ class SQLStatement():
         history_dict = {'col':[], 'agg':[], 'andor':[], 'keyword':[], 'op':[], 'value':[], 'having':[], 'decasc':[]}
 
         history = ['select']
-        history_dict['keyword'] += [history.copy()]
+        history_dict['keyword'] += history.copy()
         history_dict['col'] += [history.copy()]
         for column in self.COLS:
 
