@@ -58,18 +58,18 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
         accuracy_val = []
         predictions_val = []
         for batch in iter(validation_dataloader):
+            with torch.no_grad():    
+                prediction = model.process_batch(batch, embedding)
+                accuracy = model.accuracy(prediction, batch)
+                val_loss += [loss.detach().cpu().numpy()]
 
-            prediction = model.process_batch(batch, embedding)
-            accuracy = model.accuracy(prediction, batch)
-            val_loss += [loss.detach().cpu().numpy()]
+                if isinstance(accuracy, tuple):
+                    accuracy_num, accuracy = accuracy
+                    _, prediction = prediction
+                    accuracy_num_val += [accuracy_num.detach().cpu().numpy()]
 
-            if isinstance(accuracy, tuple):
-                accuracy_num, accuracy = accuracy
-                _, prediction = prediction
-                accuracy_num_val += [accuracy_num.detach().cpu().numpy()]
-
-            accuracy_val += [accuracy]
-            predictions_val += list(torch.argsort(-prediction)[:,0].detach().cpu().numpy())
+                accuracy_val += [accuracy]
+                predictions_val += list(torch.argsort(-prediction)[:,0].detach().cpu().numpy())
 
         val_writer.add_scalar('loss', np.mean(val_loss), epoch)
         val_writer.add_scalar('accuracy', np.mean(accuracy_val), epoch)
@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
     # Initialize data loaders
     dl_train = DataLoader(train_set, batch_size=args.batch_size, collate_fn=try_tensor_collate_fn)
-    dl_validation = DataLoader(validation_set, batch_size=len(validation_set), collate_fn=try_tensor_collate_fn)
+    dl_validation = DataLoader(validation_set, batch_size=args.batch_size, collate_fn=try_tensor_collate_fn)
 
     # Train our model
     train(model, dl_train, dl_validation, emb, 
