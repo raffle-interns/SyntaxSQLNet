@@ -10,7 +10,6 @@ from utils.utils import length_to_mask
 from utils.dataloader import SpiderDataset, try_tensor_collate_fn
 from embedding.embeddings import GloveEmbedding
 from torch.utils.data import DataLoader
-from utils.net_utils import col_name_encode
 from models.base_predictor import BasePredictor
 
 class ColPredictor(BasePredictor):
@@ -47,7 +46,7 @@ class ColPredictor(BasePredictor):
         pos_weight = torch.tensor(3).double()
         if gpu: pos_weight = pos_weight.cuda()
         self.bce_logit = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-		
+
     def forward(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len):
         """
         Args:
@@ -69,7 +68,6 @@ class ColPredictor(BasePredictor):
         hs_enc,_ = self.hs_lstm(hs_emb_var, hs_len)  # [batch_size, history_seq_len, hidden_dim]
         _, col_enc = self.col_lstm(col_emb_var, col_name_len) # [batch_size*num_cols_in_db, hidden_dim]
         col_enc = col_enc.reshape(batch_size, col_len.max(), self.hidden_dim) # [batch_size, num_cols_in_db, hidden_dim]
-        col_enc2, _ = col_name_encode(col_emb_var, col_name_len, col_len, self.col_lstm.lstm)
         #############################
         # Predict number of columns #
         #############################

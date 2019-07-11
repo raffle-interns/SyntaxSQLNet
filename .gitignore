@@ -109,3 +109,4 @@ logs/*
 *.py~
 models/logs/*
 data/
+saved_models/
