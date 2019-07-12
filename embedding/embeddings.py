@@ -52,7 +52,8 @@ class PretrainedEmbedding(Module):
         # Convert list of sentences to list of list of tokens
         # TODO: should we use shlex to split, to have words in quotes stay as one word? 
         # maybe these would just be unkown words though
-        sentences_words = [word_tokenize(sentence) for sentence in sentences]
+
+        sentences_words = [word_tokenize(sentence.replace('(', '').strip(')')) for sentence in sentences]
         lenghts = [len(sentence) for sentence in sentences_words]
         max_len = max(lenghts)
 
@@ -147,6 +148,8 @@ class PretrainedEmbedding(Module):
                 # Embedding takes in a sentence, to concat the words of the column into a sentence
                 column = ' '.join(column)
                 emb,col_name_len = self(column)
+
+                # Embeddings: (N, # columns, # words, # features)
                 embeddings[i,j,:int(col_name_len),:] = emb
                 col_name_lengths[i,j] = int(col_name_len)
 

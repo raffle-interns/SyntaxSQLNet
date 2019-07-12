@@ -9,11 +9,12 @@ SQL_ORDERBY_OPS = ['DESC LIMIT','ASC LIMIT','DESC','ASC','LIMIT','']
 SQL_DISTINCT_OP = ['distinct','']
 SQL_KEYWORDS = ['where','group by','order by']
 
-#We need these to convert sql keywords into words that exists in our embeddings
-#...Maybe not since nltk splits "!=" to "!","=" and the asc, desc exists in the glove embeddings. Maybe they aren't as good as the true word?
+# We need these to convert sql keywords into words that exists in our embeddings
+# ...Maybe not since nltk splits "!=" to "!","=" and the asc, desc exists in the glove embeddings. Maybe they aren't as good as the true word?
 SQL_AGG_dict = {'max':'maximum', 'min':'minimum', 'count':'count','sum':'sum', 'avg':'average'}
 SQL_ORDERBY_OPS_dict = {'DESC LIMIT':'descending limit', 'ASC LIMIT':'ascending limit', 'DESC':'descending', 'ASC':'ascending', 'LIMIT':'limit'}
 SQL_OPS_dict = {'=':'=','>':'>','<':'<','>=':'> =','<=':'< =','!=':'! =','NOT LIKE':'not like','LIKE':'like'}
+
 class SQLStatement():
     """
     Class
@@ -36,7 +37,8 @@ class SQLStatement():
     def __eq__(self, other):
         if not isinstance(other, SQLStatement):
             return NotImplemented
-        #The order might be different between two statements, so compare the clauses as sets
+
+        # The order might be different between two statements, so compare the clauses as sets
         return (set(self.COLS)==set(other.COLS) 
              and set(self.WHERE)==set(other.WHERE) 
              and set(self.GROUPBY)==set(other.GROUPBY)
@@ -46,7 +48,6 @@ class SQLStatement():
              and set(self.HAVING)==set(other.HAVING)
              and self.LIMIT_VALUE==other.LIMIT_VALUE)
         
-
     @property
     def keywords(self):
         keywords = []
@@ -71,36 +72,36 @@ class SQLStatement():
         return andors              
 
     def from_query(self, query):
-
-       #Remove closing ;
+        # Remove closing ;
         query = query.replace(';','')
 
-        #TODO: What about multiply (* is also used as wildcard)
+        # TODO: What about multiply (* is also used as wildcard)
         if ' - ' in query or ' + ' in query or ' / ' in query:
             raise NotImplementedError(f"Doesn't support arithmetic in query : {query}")
         
-        #TODO: fix so we also support between in our model
+        # TODO: fix so we also support between in our model
         if 'BETWEEN' in query:
             raise NotImplementedError(f'Statement doesn"t support between {query}')
 
-        #Remove any aliasing, since it's uneeded in single table queries, and only causes problems
+        # Remove any aliasing, since it's uneeded in single table queries, and only causes problems
         if 'AS ' in query:
             aliases = re.findall(r'(?<=AS ).\w+', query)
             for alias in aliases:
                 query = query.replace(f'{alias}.','')
                 query = query.replace(f'AS {alias}','')
 
-        #Find the clauses used in the query
+        # Find the clauses used in the query
         clauses = ['SELECT','FROM','WHERE','GROUP BY','HAVING','ORDER BY']
         clauses = [clause for clause in clauses if clause in query]
-        #Split query into different clauses
+
+        # Split query into different clauses
         query_split = re.split(f'({"|".join(clauses)})',query)[1:]
 
 
-        #We have to read the table first, to link the columns correctly. This should always be clause number 2
+        # We have to read the table first, to link the columns correctly. This should always be clause number 2
         self.TABLE = str.lower(query_split[3]).strip()
 
-        #loop over splits two at a time, since each clause have [claus,value]
+        # Loop over splits two at a time, since each clause have [claus,value]
         for i in range(0,len(query_split),2):
             clause = query_split[i]
             statement = query_split[i+1]
@@ -109,15 +110,15 @@ class SQLStatement():
                     agg, distinct = '',''
                     column = str.lower(column).strip()
 
-                    #For some queries the query is distinct(column), where distinct is not an aggregator...
+                    # For some queries the query is distinct(column), where distinct is not an aggregator...
                     if 'distinct(' in column:
                         distinct, column = column.split('(')
                         column = column.replace('(','').replace(')','')
 
-                    #Check if there is an aggregator in the selection
+                    # Check if there is an aggregator in the selection
                     if '(' in column:
                         agg = column.split('(')[0]
-                        #Some queries has distinct count ( distinct column), so we remove the redundant first distinct
+                        # Some queries has distinct count ( distinct column), so we remove the redundant first distinct
                         agg = agg.replace('distinct','').strip()
                         column = column.split('(')[1].split(')')[0].strip()
                     # Columns with aggregators might include the distinct keyword
@@ -127,16 +128,17 @@ class SQLStatement():
                     column = self.database.get_column(column, self.TABLE)
                     self.COLS.append(ColumnSelect(column, agg=agg, distinct=distinct))
             
-            elif clause == 'WHERE':
-                
-                #Find any AND/OR operators
+            elif clause == 'WHERE':            
+                # Find any AND/OR operators
                 conditional_ops = re.findall('( AND | OR )',statement)
-                #Split statements into individual statements
+
+                # Split statements into individual statements
                 conditions = re.split(' AND | OR ',statement)
-                #Combine the statement and AND/OR
+
+                # Combine the statement and AND/OR
                 for condition, conditional_op in zip_longest(conditions, conditional_ops, fillvalue=""):
-                    #shlex doesn't split substrings in quotes, e.g 
-                    #'book = "long title with multiple words"' -> ['book','=','long title with multiple words']
+                    # shlex doesn't split substrings in quotes, e.g 
+                    # 'book = "long title with multiple words"' -> ['book','=','long title with multiple words']
                     column, op, value = re.findall(r'(.*\(.*?\)|\'.*?\'|".*?"|NOT LIKE|\S+)',condition)             
 
                     column = str.lower(column).strip()

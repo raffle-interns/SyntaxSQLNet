@@ -68,6 +68,7 @@ class ColPredictor(BasePredictor):
         hs_enc,_ = self.hs_lstm(hs_emb_var, hs_len)  # [batch_size, history_seq_len, hidden_dim]
         _, col_enc = self.col_lstm(col_emb_var, col_name_len) # [batch_size*num_cols_in_db, hidden_dim]
         col_enc = col_enc.reshape(batch_size, col_len.max(), self.hidden_dim) # [batch_size, num_cols_in_db, hidden_dim]
+
         #############################
         # Predict number of columns #
         #############################
@@ -122,8 +123,8 @@ class ColPredictor(BasePredictor):
             col_truth = torch.tensor(col_truth).reshape(-1, 3)
 
         if len(col_num_score.shape) < 2:
-            col_num_score = col_num_score.reshape(-1, 4)
-            col_score = col_score.reshape(-1, 3)
+            col_num_score = col_num_score.reshape(-1, col_num_score.size(0))
+            col_score = col_score.reshape(-1, col_score.size(0))
 
         # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
         if col_score.dtype != torch.float64:
@@ -139,7 +140,7 @@ class ColPredictor(BasePredictor):
 
         # And binary cross entropy over the keywords predicted
         loss += self.bce_logit(col_score[mask], col_truth[mask])
-        #loss += bce_loss
+
         return loss
 
     def accuracy(self, prediction, batch):
@@ -155,8 +156,8 @@ class ColPredictor(BasePredictor):
             col_truth = torch.tensor(col_truth).reshape(-1, 3)
 
         if len(col_num_score.shape) < 2:
-            col_num_score = col_num_score.reshape(-1, 4)
-            col_score = col_score.reshape(-1, 3)
+            col_num_score = col_num_score.reshape(-1, col_num_score.size(0))
+            col_score = col_score.reshape(-1, col_score.size(0))
 
         # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
         if col_score.dtype != torch.float64:
