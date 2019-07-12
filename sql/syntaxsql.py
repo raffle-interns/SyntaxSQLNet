@@ -30,7 +30,7 @@ class SyntaxSQL():
             self.andor_predictor.load(f'saved_models/andor__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.desasc_predictor.load(f'saved_models/desasc__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.op_predictor.load(f'saved_models/op__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
-            self.col_predictor.load(f'saved_models/col__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
+            self.col_predictor.load(f'saved_models/column__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.agg_predictor.load(f'saved_models/agg__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
         
         except FileNotFoundError as ex:
@@ -40,6 +40,9 @@ class SyntaxSQL():
         self.current_keyword = ''
         self.sql = None
         self.gpu = gpu
+
+        if gpu:
+            self.embeddings = self.embeddings.cuda()
 
     def generate_select(self):
         #All statements should start with a select statement
@@ -54,9 +57,6 @@ class SyntaxSQL():
         # get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb(history['having'])
-        
-        if self.gpu:
-            hs_emb_var = hs_emb_var.cuda()
         
         col_idx = self.sql.database.get_idx_from_column(column)
 
@@ -79,9 +79,6 @@ class SyntaxSQL():
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb(history['having'])
         
-        if self.gpu:
-            hs_emb_var = hs_emb_var.cuda()
-        
         col_idx = self.sql.database.get_idx_from_column(column)
 
         having = self.having_predictor.forward(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
@@ -98,10 +95,7 @@ class SyntaxSQL():
         # get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb(history['keyword'])
-        
-        if self.gpu:
-            hs_emb_var = hs_emb_var.cuda()
-
+       
         num_kw, kws = self.keyword_predictor.forward(self.q_emb_var,self.q_len, hs_emb_var, hs_len, self.kw_emb_var, self.kw_len)
 
         #We want the keywords in the same order as much as possible
@@ -120,9 +114,6 @@ class SyntaxSQL():
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb(history['andor'])
         
-        if self.gpu:
-            hs_emb_var = hs_emb_var.cuda()
-
         col_idx = self.sql.database.get_idx_from_column(column)
         
         andor = self.andor_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
@@ -139,9 +130,6 @@ class SyntaxSQL():
         # get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb(history['op'])
-        
-        if self.gpu:
-            hs_emb_var = hs_emb_var.cuda()
         
         col_idx = self.sql.database.get_idx_from_column(column)
 
@@ -160,9 +148,6 @@ class SyntaxSQL():
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb(history['agg'])
 
-        if self.gpu:
-            hs_emb_var = hs_emb_var.cuda()
-        
         col_idx = self.sql.database.get_idx_from_column(column)
 
         agg = self.agg_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
@@ -183,15 +168,10 @@ class SyntaxSQL():
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb(history['col'])
         
-        if self.gpu:
-            hs_emb_var = hs_emb_var.cuda()
-
         num_cols, cols = self.col_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len)
         
         #predictions are returned as lists, but it only has one element
         num_cols, cols = num_cols[0], cols[0]
-
-
 
         for i, col in enumerate(cols):
             column = self.sql.database.get_column_from_idx(col)
@@ -216,8 +196,6 @@ class SyntaxSQL():
                 #Each column should have an aggregator
                 self.generate_agg(column)
 
-            
-
         if self.current_keyword == 'groupby' and len(cols)>0:
             self.generate_having(column)
         if self.current_keyword == 'orderby':
@@ -239,8 +217,4 @@ class SyntaxSQL():
 
         self.kw_emb_var, self.kw_len = self.embeddings.get_history_emb([['where', 'order by', 'group by']])
 
-        if self.gpu:
-            self.q_emb_var = self.q_emb_var.cuda()
-            self.col_emb_var = self.col_emb_var.cuda()
-            self.kw_emb_var = self.kw_emb_var.cuda()
         self.generate_keywords()
