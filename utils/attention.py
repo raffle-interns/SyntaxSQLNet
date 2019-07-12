@@ -153,7 +153,7 @@ class ConditionalAttention(Module):
         if self.use_bag_of_word:
             # Use Bag of Words to remove column length
             H_var_cond, _ = self.bag_of_word(H_var_cond, mask=mask_cond) #[batch_size, 1, hidden_dim]
-            H_var_cond = H_var_cond.squeeze() #[batch_size, hidden_dim]
+            H_var_cond = H_var_cond.squeeze(1) #[batch_size, hidden_dim]
 
         #Project embedding
         H_var_cond = self.W(H_var_cond) # [batch_size, num_cols_in_db, hidden_dim] or [batch_size, hidden_dim]
@@ -181,7 +181,7 @@ class BagOfWord(Module):
         mask = mask.to(variable.device)
         #Calculate masked mean using uniform attention
         context, _ = self.attention(variable, mask=mask) #[batch_size, 1, hidden_dim]
-        context = context.squeeze() #[batch_size, hidden_dim]
+        context = context.squeeze(1) #[batch_size, hidden_dim]
         return context
 
 if __name__ == '__main__':

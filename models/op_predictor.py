@@ -12,5 +12,5 @@ class OpPredictor(AggPredictor):
     """
     This module is identical to AggPredictor, so we inherit.
     """
-    def __init__(self, num=11, *args, **kwargs):
+    def __init__(self, num=8, *args, **kwargs):
         super(OpPredictor, self).__init__(*args, **kwargs, num=num)

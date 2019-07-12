@@ -79,10 +79,6 @@ class SQLStatement():
         if ' - ' in query or ' + ' in query or ' / ' in query:
             raise NotImplementedError(f"Doesn't support arithmetic in query : {query}")
         
-        # TODO: fix so we also support between in our model
-        if 'BETWEEN' in query:
-            raise NotImplementedError(f'Statement doesn"t support between {query}')
-
         # Remove any aliasing, since it's uneeded in single table queries, and only causes problems
         if 'AS ' in query:
             aliases = re.findall(r'(?<=AS ).\w+', query)
@@ -128,7 +124,14 @@ class SQLStatement():
                     column = self.database.get_column(column, self.TABLE)
                     self.COLS.append(ColumnSelect(column, agg=agg, distinct=distinct))
             
-            elif clause == 'WHERE':            
+            elif clause == 'WHERE':
+
+                if ' BETWEEN ' in statement:
+                    col = statement.split(' BETWEEN ')
+                    intervals = col[1].split(' AND ')
+                    col = col[0].strip(' ')
+                    statement = col + ' >= ' + intervals[0] + ' AND ' + col + ' < ' + intervals[1]
+
                 # Find any AND/OR operators
                 conditional_ops = re.findall('( AND | OR )',statement)
 
@@ -156,6 +159,13 @@ class SQLStatement():
                     self.GROUPBY.append(column)
 
             elif clause == 'HAVING':
+
+                if ' BETWEEN ' in statement:
+                    col = statement.split(' BETWEEN ')
+                    intervals = col[1].split(' AND ')
+                    col = col[0].strip(' ')
+                    statement = col + ' >= ' + intervals[0] + ' AND ' + col + ' < ' + intervals[1]
+
 
                 #Find any AND/OR operators
                 conditional_ops = re.findall('( AND | OR )',statement)
@@ -202,7 +212,7 @@ class SQLStatement():
                     #Find order by ops (asc, desc, ...), but ignore the final blank '' op
                     orderby_op = re.findall(f'({"|".join(SQL_ORDERBY_OPS[:-1])})', column)
                     if orderby_op:
-                        self.ORDERBY_OP += orderby_op
+                        self.ORDERBY_OP += [orderby_op]
 
                         if 'LIMIT' in orderby_op[0] :
                             self.LIMIT_VALUE = re.findall(r'\d+',column)[0]
@@ -331,7 +341,7 @@ class SQLStatement():
                     #Set the DESC/ASC op if statement contains it
                     orderby_op = re.findall('(DESC|ASC)',statement)
                     if orderby_op:
-                        self.ORDERBY_OP = orderby_op[0]
+                        self.ORDERBY_OP += [orderby_op[0]]
                 
             elif key == "HAVING":
                 conditions = query_dict[key][0]
@@ -369,6 +379,7 @@ class SQLStatement():
             history_dict['agg'] += [history.copy()]
             if column.agg:
                 history += [column.agg]
+            history_dict['col'] += [history.copy()]
 
             history_dict['distinct'] += [history.copy()]
             if column.distinct:
@@ -376,7 +387,7 @@ class SQLStatement():
         
         if self.WHERE:
             history += ['where']
-            history_dict['col'] += [history.copy()]
+            
             for condition in self.WHERE:
                 history += [' '.join(condition.column.to_list())]
                 
@@ -384,22 +395,27 @@ class SQLStatement():
                 history += [condition.op]
 
                 history_dict['value'] += [history.copy()]
-                history += [condition.value]
+                if condition.value:
+                    history += [condition.value]
 
+                history_dict['andor'] += [history.copy()]
                 if condition.cond_op:
-                    history_dict['andor'] += [history.copy()]
+                    
                     history += [condition.cond_op]
+
+            history_dict['col'] += [history.copy()]
 
         if self.GROUPBY:
             history += ['group by']
-            history_dict['col'] += [history.copy()]
+
             for groupby in self.GROUPBY:
                 history += [' '.join(groupby.column.to_list())]
+            history_dict['col'] += [history.copy()]
 
         history_dict['having'] += [history.copy()]
         if self.HAVING:
             history += ['having']
-            history_dict['col'] += [history.copy()]
+
             for condition in self.HAVING:
                 history += [' '.join(condition.column.to_list())]
             
@@ -412,26 +428,32 @@ class SQLStatement():
                 history += [condition.op]
 
                 history_dict['value'] += [history.copy()]
-                history += [condition.value]
+                if condition.value:
+                    history += [condition.value]
 
+                history_dict['andor'] += [history.copy()]
                 if condition.cond_op:
-                    history_dict['andor'] += [history.copy()]
+
                     history += [condition.cond_op]
+            history_dict['col'] += [history.copy()]
 
         if self.ORDERBY:
             history += ['order by']
-            history_dict['col'] += [history.copy()]
+
             for orderby in self.ORDERBY:
                 history += [' '.join(orderby.column.to_list())]
 
                 history_dict['agg'] += [history.copy()]
                 if orderby.agg:
                     history += [orderby.agg]
-        
+
+            history_dict['col'] += [history.copy()]
+
         for orderby_op in self.ORDERBY_OP:
             history_dict['decasc'] += [history.copy()]                
             if orderby_op:
                 history += [orderby_op]
+
         return history_dict
 
     def __str__(self):

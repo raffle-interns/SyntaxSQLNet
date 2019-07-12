@@ -88,8 +88,8 @@ class ColPredictor(BasePredictor):
         H_hs_col = self.hs_col(hs_enc, col_enc, hs_len, col_len)  # [batch_size, num_cols_in_db, hidden_dim]
         H_col = self.W_col(col_enc)  # [batch_size, num_cols_in_db, hidden_dim]
 
-        cols = self.col_out(H_q_col + int(self.use_hs)*H_hs_col + H_col).squeeze()  # [batch_size, num_cols_in_db]
-        col_mask = length_to_mask(col_len).squeeze().to(cols.device)
+        cols = self.col_out(H_q_col + int(self.use_hs)*H_hs_col + H_col).squeeze(2)  # [batch_size, num_cols_in_db]
+        col_mask = length_to_mask(col_len).squeeze(2).to(cols.device)
 
         # Number of columns might be different for each db, so we need to mask some of them
         cols = cols.masked_fill_(col_mask, self.col_pad_token)
@@ -180,3 +180,25 @@ class ColPredictor(BasePredictor):
         accuracy_kw = correct_keywords/batch_size
 
         return accuracy_num, accuracy_kw
+
+
+    def predict(self, *args):
+        output = self.forward(*args)
+        #Some models predict both the values and number of values
+        if isinstance(output, tuple):
+            numbers, values = output
+            
+            numbers = torch.argmax(numbers, dim=1).detach().cpu().numpy() + 1
+
+            predicted_values = []
+            predicted_numbers = []
+            # Loop over the predictions in the batch
+            for number,value in zip(numbers, values):
+
+                # Pick the n largest values
+                # Make sure we actually predict something
+                if number>0:
+                    predicted_values += [torch.argsort(-value)[:number].cpu().numpy()]
+                predicted_numbers += [number]
+            return (predicted_numbers, predicted_values)
+        return torch.argmax(output, dim=1).detach().cpu().numpy()    

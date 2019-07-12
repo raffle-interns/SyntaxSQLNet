@@ -103,8 +103,8 @@ if __name__ == '__main__':
 
     # Load pre-trained embeddings and dataset
     emb = GloveEmbedding(path='data/'+'glove.6B.50d.txt')
-    spider_train = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", "distinct", '-', ' / ', ' + '])
-    spider_dev = SpiderDataset(data_path='data/'+'dev.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", "distinct", '-', ' / ', ' + '])
+    spider_train = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=[ '-', ' / ', ' + '])
+    spider_dev = SpiderDataset(data_path='data/'+'dev.json', tables_path='/data/'+'tables.json', exclude_keywords=[ '-', ' / ', ' + '])
 
     # Select appropriate model to train
     model = model_list.models[args.model](N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)

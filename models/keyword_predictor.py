@@ -68,7 +68,7 @@ class KeyWordPredictor(BasePredictor):
         H_q_kw = self.q_kw(q_enc, kw_enc, q_len, kw_len) #[batch_size, num_keywords, hidden_dim]
         H_hs_kw = self.hs_kw(hs_enc, kw_enc, hs_len, kw_len) #[batch_size, num_keywords, hidden_dim]
         H_kw = self.W_kw(kw_enc) #[batch_size, num_keywords, hidden_dim]
-        kw = self.kw_out(H_q_kw + int(self.use_hs)*H_hs_kw + H_kw).squeeze() # [batch_size, num_keywords]
+        kw = self.kw_out(H_q_kw + int(self.use_hs)*H_hs_kw + H_kw).squeeze(2) # [batch_size, num_keywords]
 
         return (num_kw, kw)
 
