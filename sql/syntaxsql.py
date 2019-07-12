@@ -57,7 +57,7 @@ class SyntaxSQL():
     def generate_ascdesc(self, column):
         # get the history, from the current sql
         history = self.sql.generate_history()
-        hs_emb_var, hs_len = self.embeddings.get_history_emb(history['having'])
+        hs_emb_var, hs_len = self.embeddings.get_history_emb([history['having'][-1]])
         
         col_idx = self.sql.database.get_idx_from_column(column)
 
@@ -65,7 +65,7 @@ class SyntaxSQL():
 
         ascdesc = SQL_ORDERBY_OPS[int(ascdesc)]
 
-        self.sql.ORDERBY_OP = ascdesc
+        self.sql.ORDERBY_OP += [ascdesc]
 
     def generate_orderby(self):
         self.current_keyword = 'orderby'
@@ -78,7 +78,7 @@ class SyntaxSQL():
     def generate_having(self, column):
         # get the history, from the current sql
         history = self.sql.generate_history()
-        hs_emb_var, hs_len = self.embeddings.get_history_emb(history['having'])
+        hs_emb_var, hs_len = self.embeddings.get_history_emb([history['having'][-1]])
         
         col_idx = self.sql.database.get_idx_from_column(column)
 
@@ -116,12 +116,10 @@ class SyntaxSQL():
 
         # get the history, from the current sql
         history = self.sql.generate_history()
-        hs_emb_var, hs_len = self.embeddings.get_history_emb(history['andor'])
+        hs_emb_var, hs_len = self.embeddings.get_history_emb([history['andor'][-1]])
         
-        col_idx = self.sql.database.get_idx_from_column(column)
-        
-        andor = self.andor_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
-        andor = SQL_COND_OPS[andor]
+        andor = self.andor_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len)
+        andor = SQL_COND_OPS[int(andor)]
 
         if self.current_keyword == 'where':
             self.sql.WHERE[-1].cond_op = andor
@@ -171,7 +169,7 @@ class SyntaxSQL():
 
         # get the history, from the current sql
         history = self.sql.generate_history()
-        hs_emb_var, hs_len = self.embeddings.get_history_emb(history['col'])
+        hs_emb_var, hs_len = self.embeddings.get_history_emb([history['col'][-1]])
         
         num_cols, cols = self.col_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len)
         
@@ -220,7 +218,15 @@ class SyntaxSQL():
         self.q_emb_var, self.q_len = self.embeddings(question)
 
         columns = self.sql.database.to_list()
-        self.col_emb_var, self.col_len, self.col_name_len = self.embeddings.get_columns_emb([columns])
+
+        columns_all_splitted = []
+        for i, column in enumerate(columns):
+            columns_tmp = []
+            for word in column:
+                columns_tmp.extend(word.split('_'))
+            columns_all_splitted += [columns_tmp]
+
+        self.col_emb_var, self.col_len, self.col_name_len = self.embeddings.get_columns_emb([columns_all_splitted])
         batch_size, num_cols_in_db, col_name_lens, embedding_dim = self.col_emb_var.shape
         
         self.col_emb_var = self.col_emb_var.reshape(num_cols_in_db, col_name_lens, embedding_dim) 

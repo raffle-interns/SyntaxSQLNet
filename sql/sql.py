@@ -202,7 +202,7 @@ class SQLStatement():
                     #Find order by ops (asc, desc, ...), but ignore the final blank '' op
                     orderby_op = re.findall(f'({"|".join(SQL_ORDERBY_OPS[:-1])})', column)
                     if orderby_op:
-                        self.ORDERBY_OP += orderby_op
+                        self.ORDERBY_OP += [orderby_op]
 
                         if 'LIMIT' in orderby_op[0] :
                             self.LIMIT_VALUE = re.findall(r'\d+',column)[0]
@@ -331,7 +331,7 @@ class SQLStatement():
                     #Set the DESC/ASC op if statement contains it
                     orderby_op = re.findall('(DESC|ASC)',statement)
                     if orderby_op:
-                        self.ORDERBY_OP = orderby_op[0]
+                        self.ORDERBY_OP += [orderby_op[0]]
                 
             elif key == "HAVING":
                 conditions = query_dict[key][0]
@@ -362,7 +362,7 @@ class SQLStatement():
 
         history = ['select']
         history_dict['keyword'] += history.copy()
-        
+        history_dict['col'] += [history.copy()]
         for column in self.COLS:
 
             history += [' '.join(column.column.to_list())]
@@ -385,7 +385,8 @@ class SQLStatement():
                 history += [condition.op]
 
                 history_dict['value'] += [history.copy()]
-                history += [condition.value]
+                if condition.value:
+                    history += [condition.value]
 
                 history_dict['andor'] += [history.copy()]
                 if condition.cond_op:
@@ -417,7 +418,8 @@ class SQLStatement():
                 history += [condition.op]
 
                 history_dict['value'] += [history.copy()]
-                history += [condition.value]
+                if condition.value:
+                    history += [condition.value]
 
                 history_dict['andor'] += [history.copy()]
                 if condition.cond_op:
@@ -441,6 +443,7 @@ class SQLStatement():
             history_dict['decasc'] += [history.copy()]                
             if orderby_op:
                 history += [orderby_op]
+
         return history_dict
 
     def __str__(self):
@@ -519,7 +522,6 @@ class Condition():
     def distinct(self):
         return self.column_select.distinct
 
-    def __init__(self, column, op, value, cond_op="", agg="", distinct=""):
     def __init__(self, column, op="", value="", cond_op="", agg="", distinct=""):
         self.column_select = ColumnSelect(column, agg, distinct)
         self.op = op

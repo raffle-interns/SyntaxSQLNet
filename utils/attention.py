@@ -181,7 +181,7 @@ class BagOfWord(Module):
         mask = mask.to(variable.device)
         #Calculate masked mean using uniform attention
         context, _ = self.attention(variable, mask=mask) #[batch_size, 1, hidden_dim]
-        context = context.squeeze() #[batch_size, hidden_dim]
+        context = context.squeeze(1) #[batch_size, hidden_dim]
         return context
 
 if __name__ == '__main__':
