@@ -24,6 +24,19 @@ class SyntaxSQL():
         self.col_predictor = ColPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu)
         self.agg_predictor = AggPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu)
 
+        try:
+            self.having_predictor.load(f'saved_models/having__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
+            self.keyword_predictor.load(f'saved_models/keyword__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
+            self.andor_predictor.load(f'saved_models/andor__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
+            self.desasc_predictor.load(f'saved_models/desasc__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
+            self.op_predictor.load(f'saved_models/op__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
+            self.col_predictor.load(f'saved_models/col__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
+            self.agg_predictor.load(f'saved_models/agg__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')    
+        
+        except FileNotFoundError as ex:
+            
+            print(ex)
+
         self.current_keyword = ''
         self.sql = None
         self.gpu = gpu
