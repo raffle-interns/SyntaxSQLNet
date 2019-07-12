@@ -31,9 +31,13 @@ class BasePredictor(nn.Module):
         pass
 
     def loss(self, prediction, batch):
-        truth = batch[self.name].to(prediction.device)
+        truth = batch[self.name].to(prediction.device).long()
 
-        return self.cross_entropy(prediction, truth.long().squeeze(1))
+        # Match dimensions of input and target to softmax expectations
+        if len(prediction.shape) == 1: prediction = prediction.unsqueeze(0) # (N, C)
+        truth = truth.squeeze(dim=-1) # (N)
+
+        return self.cross_entropy(prediction, truth)
 
     def accuracy(self, prediction, batch):
         truth =  batch[self.name]
@@ -41,7 +45,7 @@ class BasePredictor(nn.Module):
         truth = truth.to(prediction.device).squeeze(1).long()
 
         # Predict number of columns as the argmax of the scores
-        prediction = torch.argmax(prediction, dim=1)
+        prediction = torch.argmax(prediction, dim=-1)
         
         # Compute accuracy
         accuracy = (prediction==truth).sum().float()/batch_size

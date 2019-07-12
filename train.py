@@ -43,7 +43,10 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
                 accuracy_num_train += [accuracy_num.detach().cpu().numpy()]
 
             accuracy_train += [accuracy]
-            predictions_train += list(torch.argsort(-prediction)[:,0].detach().cpu().numpy())
+
+            preds = torch.argsort(-prediction)
+            if len(preds.shape) > 1: preds = preds[:,0]
+            predictions_train += list(preds.detach().cpu().numpy())
 
         train_writer.add_scalar('loss', np.mean(train_loss), epoch)
         train_writer.add_scalar('accuracy', np.mean(accuracy_train), epoch)
@@ -69,7 +72,10 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
                     accuracy_num_val += [accuracy_num.detach().cpu().numpy()]
 
                 accuracy_val += [accuracy]
-                predictions_val += list(torch.argsort(-prediction)[:,0].detach().cpu().numpy())
+
+                preds = torch.argsort(-prediction)
+                if len(preds.shape) > 1: preds = preds[:,0]
+                predictions_val += list(preds.detach().cpu().numpy())
 
         val_writer.add_scalar('loss', np.mean(val_loss), epoch)
         val_writer.add_scalar('accuracy', np.mean(accuracy_val), epoch)
@@ -82,13 +88,12 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
             best_loss = np.mean(val_loss)
 
 if __name__ == '__main__':
-
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_layers', default=2, type=int)
     parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('--num_epochs',  default=100, type=int)
-    parser.add_argument('--batch_size', default=64, type=int)
+    parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--name_postfix',default='', type=str)
     parser.add_argument('--use_gpu', default=True, type=bool)
     parser.add_argument('--hidden_dim', default=100, type=int)
@@ -97,10 +102,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Load pre-trained embeddings and dataset
-    emb = GloveEmbedding(path='data/'+'glove.6B.300d.txt')
+    emb = GloveEmbedding(path='data/'+'glove.6B.50d.txt')
     spider_train = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", "distinct", '-', ' / ', ' + '])
     spider_dev = SpiderDataset(data_path='data/'+'dev.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", "distinct", '-', ' / ', ' + '])
-
 
     # Select appropriate model to train
     model = model_list.models[args.model](N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
