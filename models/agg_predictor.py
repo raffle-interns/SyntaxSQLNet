@@ -51,8 +51,7 @@ class AggPredictor(BasePredictor):
                                         Each column has infomation about [type, table, name_token1, name_token2,...]
             col_idx int: Index of the column which we are predicting the op for 
         Returns:
-            num_op [batch_size, 2] : probability distribution over how many columns should be predicted
-            agg [batch_size, self.num] : probability distribution over the columns given
+            agg [batch_size, self.num] : probability distribution over {max, min, avg, sum, count, none}
         """        
         batch_size = len(col_len)
 
