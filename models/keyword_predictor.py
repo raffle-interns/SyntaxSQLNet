@@ -70,7 +70,7 @@ class KeyWordPredictor(BasePredictor):
         H_kw = self.W_kw(kw_enc) #[batch_size, num_keywords, hidden_dim]
         kw = self.kw_out(H_q_kw + int(self.use_hs)*H_hs_kw + H_kw).squeeze() # [batch_size, num_keywords]
 
-        return num_kw, kw
+        return (num_kw, kw)
 
     def process_batch(self, batch, embedding):
         q_emb_var, q_len = embedding(batch['question'])
