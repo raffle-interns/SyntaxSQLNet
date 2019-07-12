@@ -36,7 +36,8 @@ class SyntaxSQL():
         except FileNotFoundError as ex:
             
             print(ex)
-
+        except:
+            pass    
         self.current_keyword = ''
         self.sql = None
         self.gpu = gpu
@@ -62,7 +63,7 @@ class SyntaxSQL():
 
         ascdesc = self.desasc_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
 
-        ascdesc = SQL_ORDERBY_OPS[ascdesc]
+        ascdesc = SQL_ORDERBY_OPS[int(ascdesc)]
 
         self.sql.ORDERBY_OP = ascdesc
 
@@ -81,7 +82,7 @@ class SyntaxSQL():
         
         col_idx = self.sql.database.get_idx_from_column(column)
 
-        having = self.having_predictor.forward(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
+        having = self.having_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
         if having:
             self.current_keyword = 'having'
             self.generate_columns()
@@ -96,15 +97,18 @@ class SyntaxSQL():
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb(history['keyword'])
        
-        num_kw, kws = self.keyword_predictor.forward(self.q_emb_var,self.q_len, hs_emb_var, hs_len, self.kw_emb_var, self.kw_len)
+        num_kw, kws = self.keyword_predictor.predict(self.q_emb_var,self.q_len, hs_emb_var, hs_len, self.kw_emb_var, self.kw_len)
 
+
+        if num_kw[0] == 0:
+            return
         #We want the keywords in the same order as much as possible
         #Keywords are added FIFO queue, so sort it
-        key_words = sorted(kws) 
+        key_words = sorted(kws[0]) 
 
         #Add other states to the list
         for key_word in key_words:
-            KEYWORDS[key_word]()
+            KEYWORDS[int(key_word)]()
         #First state should be a select state
         
 
@@ -129,12 +133,12 @@ class SyntaxSQL():
 
         # get the history, from the current sql
         history = self.sql.generate_history()
-        hs_emb_var, hs_len = self.embeddings.get_history_emb(history['op'])
+        hs_emb_var, hs_len = self.embeddings.get_history_emb([history['op'][-1]])
         
         col_idx = self.sql.database.get_idx_from_column(column)
 
         op = self.op_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
-        op = SQL_OPS[op]
+        op = SQL_OPS[int(op)]
 
         # Pick the current clause from the current keyword
         if self.current_keyword == 'where':
@@ -146,12 +150,13 @@ class SyntaxSQL():
 
         # get the history, from the current sql
         history = self.sql.generate_history()
-        hs_emb_var, hs_len = self.embeddings.get_history_emb(history['agg'])
+        hs_emb_var, hs_len = self.embeddings.get_history_emb([history['agg'][-1]])
 
         col_idx = self.sql.database.get_idx_from_column(column)
 
         agg = self.agg_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
-        agg = SQL_AGG[agg]
+
+        agg = SQL_AGG[int(agg)]
         
         if self.current_keyword == 'select':
                 self.sql.COLS[-1].agg = agg
@@ -193,8 +198,14 @@ class SyntaxSQL():
                     self.generate_andor(column)
 
             if self.current_keyword in ('orderby','select','having'):
+                if self.current_keyword == 'orderby':
+                    self.sql.ORDERBY += [ColumnSelect(column)]
+                elif self.current_keyword == 'select':
+                    self.sql.COLS += [ColumnSelect(column)]                       
                 #Each column should have an aggregator
                 self.generate_agg(column)
+            if self.current_keyword == 'groupby':
+                self.sql.GROUPBY += [ColumnSelect(column)]
 
         if self.current_keyword == 'groupby' and len(cols)>0:
             self.generate_having(column)
