@@ -369,7 +369,7 @@ class SQLStatement():
             history_dict['agg'] += [history.copy()]
             if column.agg:
                 history += [column.agg]
-        history_dict['col'] += [history.copy()]
+            history_dict['col'] += [history.copy()]
 
             history_dict['distinct'] += [history.copy()]
             if column.distinct:
