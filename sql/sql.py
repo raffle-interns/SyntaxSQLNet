@@ -356,10 +356,9 @@ class SQLStatement():
                     column = str.lower(col)
                     column = self.database.get_column(col, self.TABLE)
                     self.HAVING.append(Condition(column, agg, op, value, conditional_op))
-
     def generate_history(self):
         
-        history_dict = {'col':[], 'agg':[], 'andor':[], 'keyword':[], 'op':[], 'value':[], 'having':[], 'decasc':[]}
+        history_dict = {'col':[], 'agg':[], 'andor':[], 'keyword':[], 'op':[], 'value':[], 'having':[], 'decasc':[], 'distinct':[]}
 
         history = ['select']
         history_dict['keyword'] += history.copy()
@@ -370,6 +369,10 @@ class SQLStatement():
             history_dict['agg'] += [history.copy()]
             if column.agg:
                 history += [column.agg]
+
+            history_dict['distinct'] += [history.copy()]
+            if column.distinct:
+                history += [column.distinct]
         
         if self.WHERE:
             history += ['where']
@@ -399,7 +402,6 @@ class SQLStatement():
             history_dict['col'] += [history.copy()]
             for condition in self.HAVING:
                 history += [' '.join(condition.column.to_list())]
-
             
                 history_dict['agg'] += [history.copy()]
                 #only add aggregator if not '', since it will otherwise cause nans
@@ -425,7 +427,6 @@ class SQLStatement():
                 history_dict['agg'] += [history.copy()]
                 if orderby.agg:
                     history += [orderby.agg]
-
         
         for orderby_op in self.ORDERBY_OP:
             history_dict['decasc'] += [history.copy()]                
@@ -489,7 +490,6 @@ class ColumnSelect():
         
         return str(self) == str(other)
 
-
     def __hash__(self):
         return hash(str(self))
 class Condition():
@@ -506,12 +506,16 @@ class Condition():
     def agg(self):
         return self.column_select.agg
 
+    @property
+    def distinct(self):
+        return self.column_select.distinct
+
+    def __init__(self, column, op, value, cond_op="", agg="", distinct=""):
     def __init__(self, column, op="", value="", cond_op="", agg="", distinct=""):
         self.column_select = ColumnSelect(column, agg, distinct)
         self.op = op
         self.value = value
         self.cond_op = cond_op
-
 
     def __str__(self):
         assert self.op in SQL_OPS, f"{self.op} is not an SQL operation"
@@ -528,7 +532,6 @@ class Condition():
             return NotImplemented
         
         return str(self) == str(other)
-
 
     def __hash__(self):
         return hash(str(self))
