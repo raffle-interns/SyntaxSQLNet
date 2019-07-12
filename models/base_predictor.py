@@ -54,31 +54,32 @@ class BasePredictor(nn.Module):
 
     def predict(self, *args):
         output = self.forward(*args)
-        #Some models predict both the values and number of values
+
+        # Some models predict both the values and number of values
         if isinstance(output, tuple):
             numbers, values = output
             
-            numbers = torch.argmax(numbers, dim=1).detach().cpu().numpy()
-
+            numbers = torch.argmax(numbers, dim=-1).detach().cpu().numpy()
             predicted_values = []
             predicted_numbers = []
+
             # Loop over the predictions in the batch
             for number,value in zip(numbers, values):
-
                 # Pick the n largest values
                 # Make sure we actually predict something
                 if number>0:
                     predicted_values += [torch.argsort(-value)[:number].cpu().numpy()]
                 predicted_numbers += [number]
-            return (predicted_numbers, predicted_values)
-        return torch.argmax(output, dim=1).detach().cpu().numpy()    
 
+            return (predicted_numbers, predicted_values)
+
+        return torch.argmax(output, dim=1).detach().cpu().numpy()
 
     def load(self, file_path):
-
-        "Load the parameters of the model from a checkpoint"
-
+        """
+        Load the parameters of the model from a checkpoint.
+        """
         if os.path.exists(file_path):
             self.load_state_dict(torch.load(file_path))
         else:
-            raise FileNotFoundError("Couldn't load model since file {} doesn't exists".format(file_path))
+            raise FileNotFoundError("Couldn't load model since file {} doesn't exist!".format(file_path))
