@@ -66,7 +66,9 @@ class BasePredictor(nn.Module):
             # Loop over the predictions in the batch
             for number,value in zip(numbers, values):
                 # Pick the n largest values
-                predicted_values += [torch.argsort(-value)[:number].cpu().numpy()]
+                # Make sure we actually predict something
+                if number>0:
+                    predicted_values += [torch.argsort(-value)[:number].cpu().numpy()]
                 predicted_numbers += [number]
 
             return (predicted_numbers, predicted_values)

@@ -372,13 +372,14 @@ class SQLStatement():
 
         history = ['select']
         history_dict['keyword'] += history.copy()
-        history_dict['col'] += [history.copy()]
+        
         for column in self.COLS:
 
             history += [' '.join(column.column.to_list())]
             history_dict['agg'] += [history.copy()]
             if column.agg:
                 history += [column.agg]
+            history_dict['col'] += [history.copy()]
 
             history_dict['distinct'] += [history.copy()]
             if column.distinct:
@@ -386,7 +387,7 @@ class SQLStatement():
         
         if self.WHERE:
             history += ['where']
-            history_dict['col'] += [history.copy()]
+            
             for condition in self.WHERE:
                 history += [' '.join(condition.column.to_list())]
                 
@@ -396,20 +397,24 @@ class SQLStatement():
                 history_dict['value'] += [history.copy()]
                 history += [condition.value]
 
+                history_dict['andor'] += [history.copy()]
                 if condition.cond_op:
-                    history_dict['andor'] += [history.copy()]
+                    
                     history += [condition.cond_op]
+
+            history_dict['col'] += [history.copy()]
 
         if self.GROUPBY:
             history += ['group by']
-            history_dict['col'] += [history.copy()]
+
             for groupby in self.GROUPBY:
                 history += [' '.join(groupby.column.to_list())]
+            history_dict['col'] += [history.copy()]
 
         history_dict['having'] += [history.copy()]
         if self.HAVING:
             history += ['having']
-            history_dict['col'] += [history.copy()]
+
             for condition in self.HAVING:
                 history += [' '.join(condition.column.to_list())]
             
@@ -424,20 +429,24 @@ class SQLStatement():
                 history_dict['value'] += [history.copy()]
                 history += [condition.value]
 
+                history_dict['andor'] += [history.copy()]
                 if condition.cond_op:
-                    history_dict['andor'] += [history.copy()]
+
                     history += [condition.cond_op]
+            history_dict['col'] += [history.copy()]
 
         if self.ORDERBY:
             history += ['order by']
-            history_dict['col'] += [history.copy()]
+
             for orderby in self.ORDERBY:
                 history += [' '.join(orderby.column.to_list())]
 
                 history_dict['agg'] += [history.copy()]
                 if orderby.agg:
                     history += [orderby.agg]
-        
+
+            history_dict['col'] += [history.copy()]
+
         for orderby_op in self.ORDERBY_OP:
             history_dict['decasc'] += [history.copy()]                
             if orderby_op:
