@@ -431,7 +431,7 @@ class SQLStatement():
             history_dict['decasc'] += [history.copy()]                
             if orderby_op:
                 history += [orderby_op]
-        return history, history_dict
+        return history_dict
 
     def __str__(self):
         """Convert object to string representation of SQL"""
@@ -506,7 +506,7 @@ class Condition():
     def agg(self):
         return self.column_select.agg
 
-    def __init__(self, column, op, value, cond_op="", agg="", distinct=""):
+    def __init__(self, column, op="", value="", cond_op="", agg="", distinct=""):
         self.column_select = ColumnSelect(column, agg, distinct)
         self.op = op
         self.value = value
@@ -590,8 +590,9 @@ class DataBase():
             columns += list(table.column_dict.values())
         return columns[idx]
 
-    # def get_idx_from_column(self, column):
-    #     for column in 
+    def get_idx_from_column(self, column):
+        columns = self.to_list()
+        return columns.index(column.to_list())
 class Table():
 
     def __init__(self, table_name, column_names, column_types):

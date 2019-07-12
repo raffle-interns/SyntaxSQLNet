@@ -42,7 +42,7 @@ class BasePredictor(nn.Module):
     def accuracy(self, prediction, batch):
         truth =  batch[self.name]
         batch_size = len(truth)
-        truth = truth.to(prediction.device).squeeze().long()
+        truth = truth.to(prediction.device).squeeze(1).long()
 
         # Predict number of columns as the argmax of the scores
         prediction = torch.argmax(prediction, dim=-1)
@@ -51,3 +51,31 @@ class BasePredictor(nn.Module):
         accuracy = (prediction==truth).sum().float()/batch_size
         
         return accuracy.detach().cpu().numpy()
+
+    def predict(self, *args):
+        output = self.forward(*args)
+        #Some models predict both the values and number of values
+        if isinstance(output, tuple):
+            numbers, values = output
+            
+            numbers = torch.argmax(numbers, dim=1).detach().cpu().numpy()
+            predicted_values = []
+            predicted_numbers = []
+            # Loop over the predictions in the batch
+            for number,value in zip(numbers, values):
+
+                # Pick the n largest values
+                predicted_values += [torch.argsort(-value)[:number].cpu().numpy()]
+                predicted_numbers += [number]
+            return (predicted_numbers, predicted_values)
+        return torch.argmax(output, dim=1).detach().cpu().numpy()    
+
+
+    def load(self, file_path):
+
+        "Load the parameters of the model from a checkpoint"
+
+        if os.path.exists(file_path):
+            self.load_state_dict(torch.load(file_path))
+        else:
+            raise FileNotFoundError("Couldn't load model since file {} doesn't exists".format(file_path))
