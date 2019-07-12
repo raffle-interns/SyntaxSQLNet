@@ -80,7 +80,7 @@ class SpiderDataset(Dataset):
             sql = SQLStatement(query=example['query'], database=db)
             # TODO: include other languages
             question = example['question'][language]
-            _, history = sql.generate_history()
+            history = sql.generate_history()
 
             sample = {'sql': sql, 'question': question, 'db': db, 'history': history}
             self.samples += [sample]
@@ -106,6 +106,8 @@ class SpiderDataset(Dataset):
         question = sample['question']
         return db, sql, columns_all_splitted, columns_all, question
 
+    def __getitem__(self, idx):
+        return self.samples[idx]
 
     def generate_keyword_dataset(self):
         dataset = []

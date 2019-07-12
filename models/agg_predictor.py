@@ -26,12 +26,6 @@ class AggPredictor(BasePredictor):
                 num_layers=num_layers, batch_first=True,
                 dropout=0.3, bidirectional=True)
 
-        # Number of aggregators
-        self.q_cs_num = ConditionalAttention(hidden_dim = hidden_dim, use_bag_of_word=True)
-        self.hs_cs_num = ConditionalAttention(hidden_dim = hidden_dim, use_bag_of_word=True)
-        self.W_cs_num = nn.Linear(in_features = hidden_dim, out_features = hidden_dim)
-        self.op_num_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, 2))
-
         # Aggregators
         self.q_cs = ConditionalAttention(hidden_dim = hidden_dim, use_bag_of_word=True)
         self.hs_cs = ConditionalAttention(hidden_dim = hidden_dim, use_bag_of_word=True)
@@ -63,15 +57,10 @@ class AggPredictor(BasePredictor):
         # Get encoding of the column we are prediting the op for
         col_emb = col_enc[np.arange(batch_size),col_idx].unsqueeze(1) # [batch_size, 1, hidden_dim]
 
-        # Predict number of aggregators
-        H_q_cs = self.q_cs_num(q_enc, col_emb, q_len) # [batch_size, hidden_dim]
-        H_hs_cs = self.hs_cs_num(hs_enc, col_emb, hs_len) # [batch_size, hidden_dim]
-        H_cs = self.W_cs_num(col_emb).squeeze() # [batch_size, hidden_dim]
-
         # Predict aggregators
         H_q_cs = self.q_cs(q_enc, col_emb, q_len) # [batch_size, hidden_dim]
         H_hs_cs = self.hs_cs(hs_enc, col_emb, hs_len) # [batch_size, hidden_dim]
-        H_cs = self.W_cs(col_emb).squeeze() # [batch_size, hidden_dim]
+        H_cs = self.W_cs(col_emb).squeeze(1) # [batch_size, hidden_dim]
         
         return self.op_out(H_q_cs + int(self.use_hs)*H_hs_cs + H_cs) # [batch_size, self.num]
 
