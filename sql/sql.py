@@ -79,10 +79,6 @@ class SQLStatement():
         if ' - ' in query or ' + ' in query or ' / ' in query:
             raise NotImplementedError(f"Doesn't support arithmetic in query : {query}")
         
-        # TODO: fix so we also support between in our model
-        if 'BETWEEN' in query:
-            raise NotImplementedError(f'Statement doesn"t support between {query}')
-
         # Remove any aliasing, since it's uneeded in single table queries, and only causes problems
         if 'AS ' in query:
             aliases = re.findall(r'(?<=AS ).\w+', query)
@@ -128,7 +124,14 @@ class SQLStatement():
                     column = self.database.get_column(column, self.TABLE)
                     self.COLS.append(ColumnSelect(column, agg=agg, distinct=distinct))
             
-            elif clause == 'WHERE':            
+            elif clause == 'WHERE':
+
+                if ' BETWEEN ' in statement:
+                    col = statement.split(' BETWEEN ')
+                    intervals = col[1].split(' AND ')
+                    col = col[0].strip(' ')
+                    statement = col + ' >= ' + intervals[0] + ' AND ' + col + ' < ' + intervals[1]
+
                 # Find any AND/OR operators
                 conditional_ops = re.findall('( AND | OR )',statement)
 
@@ -156,6 +159,13 @@ class SQLStatement():
                     self.GROUPBY.append(column)
 
             elif clause == 'HAVING':
+
+                if ' BETWEEN ' in statement:
+                    col = statement.split(' BETWEEN ')
+                    intervals = col[1].split(' AND ')
+                    col = col[0].strip(' ')
+                    statement = col + ' >= ' + intervals[0] + ' AND ' + col + ' < ' + intervals[1]
+
 
                 #Find any AND/OR operators
                 conditional_ops = re.findall('( AND | OR )',statement)
@@ -510,7 +520,7 @@ class Condition():
     def distinct(self):
         return self.column_select.distinct
 
-    def __init__(self, column, op, value, cond_op="", agg="", distinct=""):
+    #def __init__(self, column, op, value, cond_op="", agg="", distinct=""):
     def __init__(self, column, op="", value="", cond_op="", agg="", distinct=""):
         self.column_select = ColumnSelect(column, agg, distinct)
         self.op = op

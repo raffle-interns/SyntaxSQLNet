@@ -1,8 +1,8 @@
 import json
 from torch.utils.data import Dataset  
-#import sys
-#import os
-#sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   
 from sql.sql import SQLStatement, DataBase, SQL_KEYWORDS, SQL_COND_OPS, SQL_AGG, SQL_OPS, SQL_ORDERBY_OPS, SQL_DISTINCT_OP
 import numpy as np
 import torch
@@ -331,8 +331,8 @@ def try_tensor_collate_fn(batch):
 
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
-    spider = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=["between", '-', ' / ', ' + '])
-    dat = spider.generate_distinct_dataset()
+    spider = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=['-', ' / ', ' + '])
+    dat = spider.generate_op_dataset()
     # spider[0]
 
     dl = DataLoader(dat, batch_size=2, collate_fn=try_tensor_collate_fn)
