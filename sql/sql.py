@@ -44,9 +44,9 @@ class SQLStatement():
              and set(self.GROUPBY)==set(other.GROUPBY)
              and set(self.ORDERBY)==set(other.ORDERBY)
              and set(self.ORDERBY_OP)==set(other.ORDERBY_OP)
-             and self.TABLE == other.TABLE
-             and set(self.HAVING)==set(other.HAVING)
-             and self.LIMIT_VALUE==other.LIMIT_VALUE)
+             #and self.TABLE == other.TABLE
+             and set(self.HAVING)==set(other.HAVING))
+             #and self.LIMIT_VALUE==other.LIMIT_VALUE)
         
     @property
     def keywords(self):

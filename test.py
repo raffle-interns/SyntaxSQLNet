@@ -10,9 +10,9 @@ corrects = 0
 for i in tqdm(range(len(spider))):
     sample = spider[i]
 
-    syntax_sql.GetSQL(sample['question'], sample['db'])
+    predicted_sql = syntax_sql.GetSQL(sample['question'], sample['db'])
 
-    if sample['sql'] == syntax_sql.sql:
+    if sample['sql'] == predicted_sql:
         corrects += 1
 
 print(f"accuracy = {corrects/len(spider)}")
