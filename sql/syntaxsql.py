@@ -6,6 +6,7 @@ from models.desasc_limit_predictor import DesAscLimitPredictor
 from models.op_predictor import OpPredictor
 from models.col_predictor import ColPredictor
 from models.agg_predictor import AggPredictor
+from models.limit_value_predictor import LimitValuePredictor
 from sql.sql import SQLStatement, Condition, ColumnSelect, SQL_OPS, SQL_AGG, SQL_COND_OPS, SQL_KEYWORDS, SQL_DISTINCT_OP, SQL_ORDERBY_OPS
 
 class SyntaxSQL():
@@ -23,6 +24,7 @@ class SyntaxSQL():
         self.op_predictor = OpPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu)
         self.col_predictor = ColPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu)
         self.agg_predictor = AggPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu)
+        self.limit_value_predictor = LimitValuePredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu)
 
         try:
             self.having_predictor.load(f'saved_models/having__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
@@ -64,6 +66,10 @@ class SyntaxSQL():
         ascdesc = SQL_ORDERBY_OPS[int(ascdesc)]
 
         self.sql.ORDERBY_OP += [ascdesc]
+
+        # TODO: add limit value prediction
+        if 'limit' in ascdesc:
+            limit_value = self.limit_value_predictor(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
 
     def generate_orderby(self):
         self.current_keyword = 'orderby'

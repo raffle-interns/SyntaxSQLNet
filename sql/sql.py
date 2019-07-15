@@ -12,7 +12,7 @@ SQL_KEYWORDS = ['where','group by','order by']
 # We need these to convert sql keywords into words that exists in our embeddings
 # ...Maybe not since nltk splits "!=" to "!","=" and the asc, desc exists in the glove embeddings. Maybe they aren't as good as the true word?
 SQL_AGG_dict = {'max':'maximum', 'min':'minimum', 'count':'count','sum':'sum', 'avg':'average'}
-SQL_ORDERBY_OPS_dict = {'DESC LIMIT':'descending limit', 'ASC LIMIT':'ascending limit', 'DESC':'descending', 'ASC':'ascending', 'LIMIT':'limit'}
+SQL_ORDERBY_OPS_dict = {'DESC LIMIT':'descending limit', 'ASC LIMIT':'ascending limit', 'DESC':'descending', 'ASC':'ascending', 'LIMIT':'limit', 'NONE': 'none'}
 SQL_OPS_dict = {'=':'=','>':'>','<':'<','>=':'> =','<=':'< =','!=':'! =','NOT LIKE':'not like','LIKE':'like'}
 
 class SQLStatement():
