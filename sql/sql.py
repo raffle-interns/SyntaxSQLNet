@@ -45,14 +45,9 @@ class SQLStatement():
              and set(self.ORDERBY)==set(other.ORDERBY)
              and set(self.ORDERBY_OP)==set(other.ORDERBY_OP)
              #and self.TABLE == other.TABLE
-<<<<<<< HEAD
              and set(self.HAVING)==set(other.HAVING)
              and str(self.LIMIT_VALUE)==str(other.LIMIT_VALUE)
         )
-=======
-             and set(self.HAVING)==set(other.HAVING))
-             #and self.LIMIT_VALUE==other.LIMIT_VALUE)
->>>>>>> c6b53ea728e9b436eef0dbb3e05c7cbfde980d10
         
     @property
     def keywords(self):
