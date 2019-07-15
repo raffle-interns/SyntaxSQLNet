@@ -70,18 +70,24 @@ class SpiderDataset(Dataset):
 
         self.samples = []
         # Cache the preprocessing in memory
+        failed = 0
         for i in range(len(self.data)):
-            example = self.data[i]
-            db_id = example['db_id']
-            db = DataBase(self.tables[db_id])
-            sql = SQLStatement(query=example['query'], database=db)
-            # TODO: include other languages
-            question = example['question'][language]
-            history = sql.generate_history()
+            try:
+                example = self.data[i]
+                db_id = example['db_id']
+                db = DataBase(self.tables[db_id])
 
-            sample = {'sql': sql, 'question': question, 'db': db, 'history': history}
-            self.samples += [sample]
+                sql = SQLStatement(query=example['query'], database=db)
+                # TODO: include other languages
+                question = example['question'][language]
+                history = sql.generate_history()
 
+                sample = {'sql': sql, 'question': question, 'db': db, 'history': history}
+                self.samples += [sample]
+            except:
+                failed += 1
+        if failed > 0:
+            print(f"{failed}/{len(self.data)} queries could not be loaded")
     def __len__(self):
         return len(self.data)
 
