@@ -527,11 +527,18 @@ class Condition():
     @property
     def agg(self):
         return self.column_select.agg
+    @agg.setter
+    def agg(self, value):
+        self.column_select.agg = value
 
     @property
     def distinct(self):
         return self.column_select.distinct
-
+    
+    @distinct.setter
+    def distinct(self, value):
+        self.column_select.distinct = value
+        
     def __init__(self, column, op="", value="", cond_op="", agg="", distinct=""):
         self.column_select = ColumnSelect(column, agg, distinct)
         self.op = op
