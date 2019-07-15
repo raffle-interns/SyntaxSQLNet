@@ -46,7 +46,8 @@ class SQLStatement():
              and set(self.ORDERBY_OP)==set(other.ORDERBY_OP)
              #and self.TABLE == other.TABLE
              and set(self.HAVING)==set(other.HAVING)
-             #and self.LIMIT_VALUE==other.LIMIT_VALUE)
+             and str(self.LIMIT_VALUE)==str(other.LIMIT_VALUE)
+        )
         
     @property
     def keywords(self):
@@ -658,7 +659,6 @@ class Column():
         
 if __name__ == "__main__":
     import json
-
 
     tables = json.load(open('tables.json'))
     data = json.load(open('train.json'))
