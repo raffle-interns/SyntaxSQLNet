@@ -7,8 +7,9 @@ from sql.sql import SQLStatement, DataBase, SQL_KEYWORDS, SQL_COND_OPS, SQL_AGG,
 import numpy as np
 import torch
 from itertools import chain
-from utils.utils import pad 
+from utils import pad 
 import os
+from nltk.tokenize import word_tokenize
 
 def zero_pad(sequences):
 
@@ -226,7 +227,6 @@ class SpiderDataset(Dataset):
 
         return ModularDataset(dataset, name='OP')
 
-
     def generate_having_dataset(self):
         dataset = []
         for sample in self.samples:
@@ -281,14 +281,25 @@ class SpiderDataset(Dataset):
             # In order to match with the history, just take the nonempty columns
             conditions = [group for group in chain(sql.WHERE, sql.HAVING) if group]
             for condition, history in zip(conditions, sample['history']['value']):
-
+                
+                 
                 # Get the index of the target column, from the lists of all columns in the database
                 column_idx = columns_all.index(condition.column.to_list())
 
-                # Get index of the aggregator
-                value = (condition.value)
+                # Get target value
+                value = word_tokenize(str.lower(condition.value).replace('"', '').replace('.','').replace('%','').replace('\'',''))[0]
+                
+                #Convert to onehot encoding
+                #TODO make Words to number: five -> 5
+                tokens=word_tokenize(str.lower(sample['question']).replace('(', '').strip(')').replace('.','').replace('\'',''))
+                values_onehot = np.zeros(len(tokens))
+                try:
+                    values_onehot[tokens.index(value)] = 1
+                except:
+                    pass
+                value = [value,values_onehot]
 
-                dataset.append({'columns_all':columns_all_splitted, 'column_idx': column_idx, 'value': [value], 'question': question, 'history': history, 'db': db, 'sql': sql})
+                dataset.append({'columns_all':columns_all_splitted, 'column_idx': column_idx, 'value': value, 'question': question, 'history': history, 'db': db, 'sql': sql})
 
         return ModularDataset(dataset, name='Value')
 
@@ -351,7 +362,7 @@ def try_tensor_collate_fn(batch):
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
     spider = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=['-', ' / ', ' + '])
-    dat = spider.generate_op_dataset()
+    dat = spider.generate_value_dataset()
     # spider[0]
 
     dl = DataLoader(dat, batch_size=2, collate_fn=try_tensor_collate_fn)
