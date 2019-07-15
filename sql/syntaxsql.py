@@ -7,6 +7,7 @@ from models.op_predictor import OpPredictor
 from models.col_predictor import ColPredictor
 from models.agg_predictor import AggPredictor
 from models.limit_value_predictor import LimitValuePredictor
+from models.distinct_predictor import DistinctPredictor
 from sql.sql import SQLStatement, Condition, ColumnSelect, SQL_OPS, SQL_AGG, SQL_COND_OPS, SQL_KEYWORDS, SQL_DISTINCT_OP, SQL_ORDERBY_OPS
 
 class SyntaxSQL():
@@ -25,23 +26,22 @@ class SyntaxSQL():
         self.col_predictor = ColPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
         self.agg_predictor = AggPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
         self.limit_value_predictor = LimitValuePredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
-
+        self.distinct_predictor = DistinctPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
+        
         try:
-            
             self.having_predictor.load(f'saved_models/having__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.keyword_predictor.load(f'saved_models/keyword__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.andor_predictor.load(f'saved_models/andor__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.desasc_predictor.load(f'saved_models/desasc__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.op_predictor.load(f'saved_models/op__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.col_predictor.load(f'saved_models/column__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
-            self.agg_predictor.load(f'saved_models/agg__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')   
-            self.limit_value_predictor.load(f'saved_models/agg__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')     
-        
-        except FileNotFoundError as ex:        
-            print(ex)
+            self.distinct_predictor.load(f'saved_models/distinct__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
+            self.agg_predictor.load(f'saved_models/agg__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
+            self.limit_value_predictor.load(f'saved_models/agg__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')     
 
         except:
-            print(ex)
+            import sys
+            print(sys.exc_info())
                 
         self.current_keyword = ''
         self.sql = None
@@ -147,6 +147,24 @@ class SyntaxSQL():
         else:
             self.sql.HAVING[-1].op = op
 
+    def generate_distrinct(self, column):
+        # get the history, from the current sql
+        history = self.sql.generate_history()
+        hs_emb_var, hs_len = self.embeddings.get_history_emb([history['distinct'][-1]])
+
+        col_idx = self.sql.database.get_idx_from_column(column)
+
+        distinct = self.distinct_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
+
+        distinct = SQL_DISTINCT_OP[int(distinct)]
+        
+        if self.current_keyword == 'select':
+            self.sql.COLS[-1].distinct = distinct
+        elif self.current_keyword == 'orderby':
+            self.sql.ORDERBY[-1].distinct = distinct
+        elif self.current_keyword == 'having':
+            self.sql.HAVING[-1].distinct = distinct
+
     def generate_agg(self, column):
 
         # get the history, from the current sql
@@ -160,9 +178,12 @@ class SyntaxSQL():
         agg = SQL_AGG[int(agg)]
         
         if self.current_keyword == 'select':
-                self.sql.COLS[-1].agg = agg
+            self.sql.COLS[-1].agg = agg
         elif self.current_keyword == 'orderby':
             self.sql.ORDERBY[-1].agg = agg
+        elif self.current_keyword == 'having':
+            self.sql.HAVING[-1].agg = agg
+
     
     def generate_value(self, column):
         pass
@@ -201,9 +222,12 @@ class SyntaxSQL():
                 if self.current_keyword == 'orderby':
                     self.sql.ORDERBY += [ColumnSelect(column)]
                 elif self.current_keyword == 'select':
-                    self.sql.COLS += [ColumnSelect(column)]                       
+                    self.sql.COLS += [ColumnSelect(column)]  
+
                 #Each column should have an aggregator
                 self.generate_agg(column)
+                self.generate_distrinct(column)
+
             if self.current_keyword == 'groupby':
                 self.sql.GROUPBY += [ColumnSelect(column)]
 

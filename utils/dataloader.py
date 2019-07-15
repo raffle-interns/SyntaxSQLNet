@@ -226,39 +226,6 @@ class SpiderDataset(Dataset):
 
         return ModularDataset(dataset, name='OP')
 
-    def generate_value_dataset(self):
-        dataset = []
-        for sample in self.samples:
-            db = sample['db']
-            sql = sample['sql']
-            # Get a list of all columns in the database
-            columns_all = db.to_list()
-            #split connected words like 'address_id' into address, id
-            # TODO: Should we do this in the database object 
-            columns_all_splitted = []
-            for i, column in enumerate(columns_all):
-                columns_tmp = []
-                for word in column:
-                    columns_tmp.extend(word.split('_'))
-                
-                columns_all_splitted += [columns_tmp]
-
-            question = sample['question']
-            
-            #In order to match with the history, just take the nonempty columns
-            conditions = [group for group in chain(sql.WHERE, sql.HAVING) if group]
-
-            for condition, history in zip(conditions, sample['history']['op']):
-                #Get the index of the target column, from the lists of all columns in the database
-                column_idx = columns_all.index(condition.column.to_list())
-
-                #Get the value of the condition
-                value = condition.value
-
-                dataset.append({'columns_all':columns_all_splitted, 'column_idx': column_idx, 'value': [value], 'question': question, 'history': history, 'db': db, 'sql': sql})
-
-        return ModularDataset(dataset, name='Value')
-
 
     def generate_having_dataset(self):
         dataset = []
@@ -305,7 +272,7 @@ class SpiderDataset(Dataset):
 
         return ModularDataset(dataset, name='Desasc')
 
-    def _generate_value_dataset(self):
+    def generate_value_dataset(self):
         dataset = []
         for sample in self.samples:
             
