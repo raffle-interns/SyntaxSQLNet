@@ -201,4 +201,4 @@ class ColPredictor(BasePredictor):
                     predicted_values += [torch.argsort(-value)[:number].cpu().numpy()]
                 predicted_numbers += [number]
             return (predicted_numbers, predicted_values)
-        return torch.argmax(output, dim=1).detach().cpu().numpy()    
+        return torch.argmax(output, dim=1).detach().cpu().numpy()

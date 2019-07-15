@@ -166,7 +166,6 @@ class SQLStatement():
                     col = col[0].strip(' ')
                     statement = col + ' >= ' + intervals[0] + ' AND ' + col + ' < ' + intervals[1]
 
-
                 #Find any AND/OR operators
                 conditional_ops = re.findall('( AND | OR )',statement)
                 #Split statements into individual statements
@@ -366,6 +365,7 @@ class SQLStatement():
                     column = str.lower(col)
                     column = self.database.get_column(col, self.TABLE)
                     self.HAVING.append(Condition(column, agg, op, value, conditional_op))
+                    
     def generate_history(self):
         
         history_dict = {'col':[], 'agg':[], 'andor':[], 'keyword':[], 'op':[], 'value':[], 'having':[], 'decasc':[], 'distinct':[]}
@@ -617,6 +617,7 @@ class DataBase():
     def get_column(self, column, table):
         #TODO: this will fail, if the predicted columns aren't all from the same table...
         return self.tables_dict[table].column_dict[column]
+
     def get_column_from_idx(self, idx):
         columns = []
         for table in self.tables:
