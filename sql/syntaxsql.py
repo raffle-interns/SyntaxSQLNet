@@ -27,7 +27,7 @@ class SyntaxSQL():
         self.agg_predictor = AggPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
         self.limit_value_predictor = LimitValuePredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
         self.distinct_predictor = DistinctPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
-        
+
         try:
             self.having_predictor.load(f'saved_models/having__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.keyword_predictor.load(f'saved_models/keyword__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
@@ -37,12 +37,11 @@ class SyntaxSQL():
             self.col_predictor.load(f'saved_models/column__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.distinct_predictor.load(f'saved_models/distinct__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.agg_predictor.load(f'saved_models/agg__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
-            self.limit_value_predictor.load(f'saved_models/agg__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')     
+            self.limit_value_predictor.load(f'saved_models/limitvalue__num_layers={num_layers}__lr=0.001__dropout=0.3__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')     
 
-        except:
-            import sys
-            print(sys.exc_info())
-                
+        except FileNotFoundError as ex:
+            print(ex)
+
         self.current_keyword = ''
         self.sql = None
         self.gpu = gpu
@@ -183,7 +182,6 @@ class SyntaxSQL():
             self.sql.ORDERBY[-1].agg = agg
         elif self.current_keyword == 'having':
             self.sql.HAVING[-1].agg = agg
-
     
     def generate_value(self, column):
         pass

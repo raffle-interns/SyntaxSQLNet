@@ -45,8 +45,9 @@ class SQLStatement():
              and set(self.ORDERBY)==set(other.ORDERBY)
              and set(self.ORDERBY_OP)==set(other.ORDERBY_OP)
              #and self.TABLE == other.TABLE
-             and set(self.HAVING)==set(other.HAVING))
-             #and self.LIMIT_VALUE==other.LIMIT_VALUE)
+             and set(self.HAVING)==set(other.HAVING)
+             and str(self.LIMIT_VALUE)==str(other.LIMIT_VALUE)
+        )
         
     @property
     def keywords(self):
@@ -200,7 +201,6 @@ class SQLStatement():
                         agg = column.split('(')[0].strip()
                         
                         col = column.split('(')[1].split(')')[0].strip()
-                        
                     
                     else:
                         col = column.split()[0].strip()
@@ -213,8 +213,9 @@ class SQLStatement():
                     if orderby_op:
                         self.ORDERBY_OP += orderby_op
 
-                        if 'LIMIT' in orderby_op[0] :
-                            self.LIMIT_VALUE = re.findall(r'\d+',column)[0]
+                        if 'LIMIT' in orderby_op[0]:
+                            fnd = re.findall(r'\d+', statement)
+                            self.LIMIT_VALUE = fnd[-1]
                     else:
                         self.ORDERBY_OP += [""]
 
@@ -462,7 +463,7 @@ class SQLStatement():
         string_where = [str(where) for where in self.WHERE]
         string_group = [str(group) for group in self.GROUPBY]
         string_having = [str(having) for having in self.HAVING]
-        string_order = [f"{str(order)} {orderop}" for order, orderop in zip_longest(self.ORDERBY, self.ORDERBY_OP,fillvalue="")]
+        string_order = [f"{str(order)} {orderop} {limitvalue}" for order, orderop, limitvalue in zip_longest(self.ORDERBY, self.ORDERBY_OP, [self.LIMIT_VALUE], fillvalue="")]
 
         if not self.TABLE :
             self.TABLE = self.COLS[0].column.table_name
@@ -478,7 +479,7 @@ class SQLStatement():
         if string_order:
             sql_string += f" ORDER BY {','.join(string_order)}"
         
-        sql_string += f" {self.LIMIT_VALUE}"
+        #sql_string += f" {self.LIMIT_VALUE}"
         #Fix to remove unwanted spaces
         sql_string = sql_string.replace('( ','(').replace('  ',' ')
         
@@ -658,7 +659,6 @@ class Column():
         
 if __name__ == "__main__":
     import json
-
 
     tables = json.load(open('tables.json'))
     data = json.load(open('train.json'))

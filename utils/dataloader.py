@@ -302,10 +302,10 @@ class SpiderDataset(Dataset):
 
                 # Get the index of the target column, from the lists of all columns in the database
                 column_idx = columns_all.index(orderby.column.to_list()) 
-                desasc = SQL_ORDERBY_OPS.index(orderby_op[0])
-                limitvalue = [int(limitvalue)]
+                desasc = SQL_ORDERBY_OPS.index(orderby_op)
+                limitvalue = int(limitvalue)
 
-                dataset.append({'columns_all':columns_all_splitted, 'column_idx': column_idx, 'desasc': [desasc], 'limitvalue': limitvalue, 'question': question, 'history': history, 'db': db, 'sql': sql})
+                dataset.append({'columns_all':columns_all_splitted, 'column_idx': column_idx, 'desasc': [desasc], 'limitvalue': [limitvalue], 'question': question, 'history': history, 'db': db, 'sql': sql})
 
         return ModularDataset(dataset, name='LimitValue')
 

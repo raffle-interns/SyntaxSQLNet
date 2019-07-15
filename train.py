@@ -100,7 +100,7 @@ if __name__ == '__main__':
     parser.add_argument('--save', default=True, type=bool)
     parser.add_argument('--dropout', default=0.3, type=float)
     parser.add_argument('--embedding_dim',default=300, type=int)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='desasc')
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='limitvalue')
     args = parser.parse_args()
 
     # Load pre-trained embeddings and dataset
