@@ -93,21 +93,23 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', default=2, type=int)
     parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('--num_epochs',  default=100, type=int)
-    parser.add_argument('--batch_size', default=256, type=int)
+    parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--name_postfix',default='', type=str)
     parser.add_argument('--use_gpu', default=True, type=bool)
     parser.add_argument('--hidden_dim', default=100, type=int)
     parser.add_argument('--save', default=True, type=bool)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='limitvalue')
+    parser.add_argument('--dropout', default=0.3, type=float)
+    parser.add_argument('--embedding_dim',default=300, type=int)
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='desasc')
     args = parser.parse_args()
 
     # Load pre-trained embeddings and dataset
-    emb = GloveEmbedding(path='data/'+'glove.6B.50d.txt')
+    emb = GloveEmbedding(path='data/'+f'glove.6B.{args.embedding_dim}d.txt')
     spider_train = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=[ '-', ' / ', ' + '])
     spider_dev = SpiderDataset(data_path='data/'+'dev.json', tables_path='/data/'+'tables.json', exclude_keywords=[ '-', ' / ', ' + '])
 
     # Select appropriate model to train
-    model = model_list.models[args.model](N_word=emb.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
+    model = model_list.models[args.model](N_word=args.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
 
     # Generate appropriate datasets
     func_name = 'generate_' + args.model + '_dataset'
@@ -120,7 +122,7 @@ if __name__ == '__main__':
 
     # Train our model
     train(model, dl_train, dl_validation, emb, 
-            name=f'{args.model}__num_layers={args.num_layers}__lr={args.lr}__batch_size={args.batch_size}__hidden_dim={args.hidden_dim}__epoch={args.num_epochs}__{args.name_postfix}', 
+            name=f'{args.model}__num_layers={args.num_layers}__lr={args.lr}__dropout={args.dropout}__batch_size={args.batch_size}__embedding_dim={args.embedding_dim}__hidden_dim={args.hidden_dim}__epoch={args.num_epochs}__{args.name_postfix}', 
             num_epochs=args.num_epochs,
             lr=args.lr,
             save=args.save)

@@ -44,9 +44,9 @@ class SQLStatement():
              and set(self.GROUPBY)==set(other.GROUPBY)
              and set(self.ORDERBY)==set(other.ORDERBY)
              and set(self.ORDERBY_OP)==set(other.ORDERBY_OP)
-             and self.TABLE == other.TABLE
-             and set(self.HAVING)==set(other.HAVING)
-             and self.LIMIT_VALUE==other.LIMIT_VALUE)
+             #and self.TABLE == other.TABLE
+             and set(self.HAVING)==set(other.HAVING))
+             #and self.LIMIT_VALUE==other.LIMIT_VALUE)
         
     @property
     def keywords(self):
@@ -211,7 +211,7 @@ class SQLStatement():
                     #Find order by ops (asc, desc, ...), but ignore the final blank '' op
                     orderby_op = re.findall(f'({"|".join(SQL_ORDERBY_OPS[:-1])})', column)
                     if orderby_op:
-                        self.ORDERBY_OP += [orderby_op]
+                        self.ORDERBY_OP += orderby_op
 
                         if 'LIMIT' in orderby_op[0] :
                             self.LIMIT_VALUE = re.findall(r'\d+',column)[0]
@@ -552,10 +552,12 @@ class Condition():
         if not isinstance(other, Condition):
             return NotImplemented
         
-        return str(self) == str(other)
+        return self.column_select==other.column_select and self.op==other.op and self.cond_op==other.cond_op
+        #return str(self) == str(other)
 
     def __hash__(self):
-        return hash(str(self))
+        return hash( (self.column_select, self.op, self.cond_op) )
+        #return hash(str(self))
 
 #####################
 # Meta data classes #
