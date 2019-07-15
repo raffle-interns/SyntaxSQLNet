@@ -14,3 +14,6 @@ class LimitValuePredictor(AggPredictor):
     """
     def __init__(self, num=10, *args, **kwargs):
         super(LimitValuePredictor, self).__init__(*args, **kwargs, num=num)
+
+    def predict(self, *args):
+        return AggPredictor.predict(self, *args) + 1

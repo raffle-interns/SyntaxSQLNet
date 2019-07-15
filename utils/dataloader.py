@@ -27,21 +27,18 @@ def zero_pad(sequences):
         padded_seqs[i, :end] = seq[:end]
     return padded_seqs, lengths
 
-
 class SpiderDataset(Dataset):
     """
     Wrapper around the Spider dataset, that automatically removes selected keywords and caches the sql, question,
     database and histoy in memory as well as generating the different datasets for each module.
 
     """
-
     def __init__(self, data_path, tables_path, exclude_keywords=[], debug=True, language='en'):
         """
         Args:
             data_path (string): file path of the data json file with questions
             tables_path (string): file path of the tables json file with db schema
-        """
-		
+        """		
         directory=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         print(directory)
 		
@@ -73,18 +70,24 @@ class SpiderDataset(Dataset):
 
         self.samples = []
         # Cache the preprocessing in memory
+        failed = 0
         for i in range(len(self.data)):
-            example = self.data[i]
-            db_id = example['db_id']
-            db = DataBase(self.tables[db_id])
-            sql = SQLStatement(query=example['query'], database=db)
-            # TODO: include other languages
-            question = example['question'][language]
-            history = sql.generate_history()
+            try:
+                example = self.data[i]
+                db_id = example['db_id']
+                db = DataBase(self.tables[db_id])
 
-            sample = {'sql': sql, 'question': question, 'db': db, 'history': history}
-            self.samples += [sample]
+                sql = SQLStatement(query=example['query'], database=db)
+                # TODO: include other languages
+                question = example['question'][language]
+                history = sql.generate_history()
 
+                sample = {'sql': sql, 'question': question, 'db': db, 'history': history}
+                self.samples += [sample]
+            except:
+                failed += 1
+        if failed > 0:
+            print(f"{failed}/{len(self.data)} queries could not be loaded")
     def __len__(self):
         return len(self.data)
 
@@ -244,10 +247,11 @@ class SpiderDataset(Dataset):
             
             #In order to match with the history, just take the nonempty columns
             conditions = [group for group in chain(sql.WHERE, sql.HAVING) if group]
-            for condition, history in zip(conditions, sample['history']['op']):
 
+            for condition, history in zip(conditions, sample['history']['op']):
                 #Get the index of the target column, from the lists of all columns in the database
-                column_idx = columns_all.index(condition.column.to_list()) 
+                column_idx = columns_all.index(condition.column.to_list())
+
                 #Get the value of the condition
                 value = condition.value
 
@@ -285,7 +289,6 @@ class SpiderDataset(Dataset):
 
         return ModularDataset(dataset, name='Having')
 
-
     def generate_desasc_dataset(self):
         dataset = []
         for sample in self.samples:
@@ -302,26 +305,42 @@ class SpiderDataset(Dataset):
 
         return ModularDataset(dataset, name='Desasc')
 
-
-    def generate_value_dataset(self):
+    def _generate_value_dataset(self):
         dataset = []
         for sample in self.samples:
             
             db, sql, columns_all_splitted, columns_all, question = self.get_common_data(sample)
             
-            #In order to match with the history, just take the nonempty columns
+            # In order to match with the history, just take the nonempty columns
             conditions = [group for group in chain(sql.WHERE, sql.HAVING) if group]
             for condition, history in zip(conditions, sample['history']['value']):
 
-                #Get the index of the target column, from the lists of all columns in the database
-                column_idx = columns_all.index(condition.column.to_list()) 
-                #Get index of the aggregator
+                # Get the index of the target column, from the lists of all columns in the database
+                column_idx = columns_all.index(condition.column.to_list())
+
+                # Get index of the aggregator
                 value = (condition.value)
 
                 dataset.append({'columns_all':columns_all_splitted, 'column_idx': column_idx, 'value': [value], 'question': question, 'history': history, 'db': db, 'sql': sql})
 
         return ModularDataset(dataset, name='Value')
 
+    def generate_limitvalue_dataset(self):
+        dataset = []
+        for sample in self.samples:
+            
+            db, sql, columns_all_splitted, columns_all, question = self.get_common_data(sample)           
+
+            for orderby, orderby_op, limitvalue, history in zip(sql.ORDERBY, sql.ORDERBY_OP, sql.LIMIT_VALUE, sample['history']['decasc']):
+
+                # Get the index of the target column, from the lists of all columns in the database
+                column_idx = columns_all.index(orderby.column.to_list()) 
+                desasc = SQL_ORDERBY_OPS.index(orderby_op[0])
+                limitvalue = [int(limitvalue)]
+
+                dataset.append({'columns_all':columns_all_splitted, 'column_idx': column_idx, 'desasc': [desasc], 'limitvalue': limitvalue, 'question': question, 'history': history, 'db': db, 'sql': sql})
+
+        return ModularDataset(dataset, name='LimitValue')
 
 class ModularDataset(Dataset):
 

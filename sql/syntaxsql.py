@@ -37,7 +37,8 @@ class SyntaxSQL():
             self.col_predictor.load(f'saved_models/column__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.distinct_predictor.load(f'saved_models/distinct__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.agg_predictor.load(f'saved_models/agg__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
-
+            self.limit_value_predictor.load(f'saved_models/agg__num_layers={num_layers}__lr=0.001__batch_size=64__hidden_dim={hidden_dim}__epoch=100__.pt')     
+        
 
         except FileNotFoundError as ex:
             
@@ -71,9 +72,9 @@ class SyntaxSQL():
 
         self.sql.ORDERBY_OP += [ascdesc]
 
-        # TODO: add limit value prediction
-        if 'limit' in ascdesc:
-            limit_value = self.limit_value_predictor(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
+        if 'LIMIT' in ascdesc:
+            limit_value = self.limit_value_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)[0]
+            self.sql.LIMIT_VALUE = limit_value
 
     def generate_orderby(self):
         self.current_keyword = 'orderby'
@@ -95,8 +96,7 @@ class SyntaxSQL():
             self.current_keyword = 'having'
             self.generate_columns()
     
-    def generate_keywords(self):
-        
+    def generate_keywords(self):       
         self.generate_select()
 
         KEYWORDS =[self.generate_where, self.generate_groupby, self.generate_orderby]
@@ -106,7 +106,6 @@ class SyntaxSQL():
         hs_emb_var, hs_len = self.embeddings.get_history_emb(history['keyword'])
        
         num_kw, kws = self.keyword_predictor.predict(self.q_emb_var,self.q_len, hs_emb_var, hs_len, self.kw_emb_var, self.kw_len)
-
 
         if num_kw[0] == 0:
             return
@@ -119,9 +118,7 @@ class SyntaxSQL():
             KEYWORDS[int(key_word)]()
         #First state should be a select state
         
-
     def generate_andor(self, column):
-
         # get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb([history['andor'][-1]])
@@ -134,9 +131,7 @@ class SyntaxSQL():
         elif self.current_keyword == 'having':
             self.sql.HAVING[-1].cond_op = andor
         
-    
     def generate_op(self, column):
-
         # get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb([history['op'][-1]])
@@ -186,9 +181,12 @@ class SyntaxSQL():
             self.sql.COLS[-1].agg = agg
         elif self.current_keyword == 'orderby':
             self.sql.ORDERBY[-1].agg = agg
+<<<<<<< HEAD
         elif self.current_keyword == 'having':
             self.sql.HAVING[-1].agg = agg
 
+=======
+>>>>>>> 0ec305e090e6869d0346fcf0e82186bf40321c0c
     
     def generate_value(self, column):
         pass

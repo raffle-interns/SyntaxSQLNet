@@ -83,8 +83,10 @@ class PretrainedEmbedding(Module):
         for word in words:
             emb_list=[]
             for element in word.split('_'):
-                emb,_ = self(element, mean_sequence=True)
-                emb_list.append(emb)
+                # if we have a trailing _ we don't want to embed an empty string
+                if element:
+                    emb,_ = self(element, mean_sequence=True)
+                    emb_list.append(emb)
             embs.append(torch.mean(torch.stack(emb_list), dim=0))
 
         return torch.mean(torch.stack(embs), dim=0)
