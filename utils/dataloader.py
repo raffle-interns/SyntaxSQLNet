@@ -72,7 +72,7 @@ class SpiderDataset(Dataset):
 
         self.samples = []
 
-        p = re.compile("(?:(?<!\w)'((?:.|\n)+?'?)'(?!\w))")
+        p = re.compile(r"(?:(?<!\w)'((?:.|\n)+?'?)'(?!\w))")
         # Cache the preprocessing in memory
         failed = 0
         for i in range(len(self.data)):
@@ -84,7 +84,7 @@ class SpiderDataset(Dataset):
                 sql = SQLStatement(query=example['query'], database=db)
                 # TODO: include other languages
                 # Replace ' with " to split the words correctly
-                question = re.sub(p, u"\"\g<1>\"", example['question'][language])#.replace('\'','"')
+                question = re.sub(p, r"\"\g<1>\"", example['question'][language])#.replace('\'','"')
                 history = sql.generate_history()
 
                 sample = {'sql': sql, 'question': question, 'db': db, 'history': history}
