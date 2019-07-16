@@ -42,7 +42,6 @@ class SpiderDataset(Dataset):
             tables_path (string): file path of the tables json file with db schema
         """		
         directory=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        print(directory)
 		
         self.exclude_keywords = exclude_keywords
         self.data = []

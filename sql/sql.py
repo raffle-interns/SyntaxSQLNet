@@ -48,7 +48,17 @@ class SQLStatement():
              and set(self.HAVING)==set(other.HAVING)
              and str(self.LIMIT_VALUE)==str(other.LIMIT_VALUE)
         )
-        
+    def component_match(self, other):
+        return ( 
+            set(self.COLS)==set(other.COLS),
+            set(self.WHERE)==set(other.WHERE),
+            set(self.GROUPBY)==set(other.GROUPBY),
+            set(self.ORDERBY)==set(other.ORDERBY)
+                and set(self.ORDERBY_OP)==set(other.ORDERBY_OP),
+            set(self.HAVING)==set(other.HAVING),
+            str(self.LIMIT_VALUE)==str(other.LIMIT_VALUE)
+        )
+         
     @property
     def keywords(self):
         keywords = []
