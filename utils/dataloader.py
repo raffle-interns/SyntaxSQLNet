@@ -7,9 +7,10 @@ from sql.sql import SQLStatement, DataBase, SQL_KEYWORDS, SQL_COND_OPS, SQL_AGG,
 import numpy as np
 import torch
 from itertools import chain
-from utils import pad 
+from utils.utils import pad
 import os
 from nltk.tokenize import word_tokenize
+import re
 
 def zero_pad(sequences):
 
@@ -70,6 +71,8 @@ class SpiderDataset(Dataset):
             self.tables[db_id] = table
 
         self.samples = []
+
+        p = re.compile("(?:(?<!\w)'((?:.|\n)+?'?)'(?!\w))")
         # Cache the preprocessing in memory
         failed = 0
         for i in range(len(self.data)):
@@ -80,7 +83,8 @@ class SpiderDataset(Dataset):
 
                 sql = SQLStatement(query=example['query'], database=db)
                 # TODO: include other languages
-                question = example['question'][language]
+                # Replace ' with " to split the words correctly
+                question = re.sub(p, u"\"\g<1>\"", example['question'][language])#.replace('\'','"')
                 history = sql.generate_history()
 
                 sample = {'sql': sql, 'question': question, 'db': db, 'history': history}
@@ -287,19 +291,27 @@ class SpiderDataset(Dataset):
                 column_idx = columns_all.index(condition.column.to_list())
 
                 # Get target value
-                value = word_tokenize(str.lower(condition.value).replace('"', '').replace('.','').replace('%','').replace('\'',''))[0]
+                value = word_tokenize(str.lower(condition.value).strip('".%\''))
+                
+                if value:
+                    start_token = value[0]
+                    num_tokens = len(value)
+                #TODO the value might be '' which doesn't work with the tokenizer at the moment
+                else:
+                    start_token = ''
+                    num_tokens = 1
                 
                 #Convert to onehot encoding
                 #TODO make Words to number: five -> 5
-                tokens=word_tokenize(str.lower(sample['question']).replace('(', '').strip(')').replace('.','').replace('\'',''))
+                tokens=word_tokenize(str.lower(sample['question']))
                 values_onehot = np.zeros(len(tokens))
                 try:
-                    values_onehot[tokens.index(value)] = 1
+                    values_onehot[tokens.index(start_token)] = 1
                 except:
                     pass
-                value = [value,values_onehot]
+                
 
-                dataset.append({'columns_all':columns_all_splitted, 'column_idx': column_idx, 'value': value, 'question': question, 'history': history, 'db': db, 'sql': sql})
+                dataset.append({'columns_all':columns_all_splitted, 'column_idx': column_idx, 'value': values_onehot, 'num_tokens':num_tokens, 'question': question, 'history': history, 'db': db, 'sql': sql})
 
         return ModularDataset(dataset, name='Value')
 
