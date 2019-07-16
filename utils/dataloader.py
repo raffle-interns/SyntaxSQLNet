@@ -2,13 +2,12 @@ import json
 from torch.utils.data import Dataset  
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sql.sql import SQLStatement, DataBase, SQL_KEYWORDS, SQL_COND_OPS, SQL_AGG, SQL_OPS, SQL_ORDERBY_OPS, SQL_DISTINCT_OP
 import numpy as np
 import torch
 from itertools import chain
-from utils.utils import pad 
-import os
+from utils.utils import pad
 
 def zero_pad(sequences):
 
@@ -88,6 +87,7 @@ class SpiderDataset(Dataset):
                 failed += 1
         if failed > 0:
             print(f"{failed}/{len(self.data)} queries could not be loaded")
+
     def __len__(self):
         return len(self.data)
 
