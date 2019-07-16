@@ -7,7 +7,7 @@ from sql.sql import SQLStatement, DataBase, SQL_KEYWORDS, SQL_COND_OPS, SQL_AGG,
 import numpy as np
 import torch
 from itertools import chain
-from utils.utils import pad
+from utils import pad, text2int
 import os
 from nltk.tokenize import word_tokenize
 import re
@@ -303,7 +303,7 @@ class SpiderDataset(Dataset):
                 
                 #Convert to onehot encoding
                 #TODO make Words to number: five -> 5
-                tokens=word_tokenize(str.lower(sample['question']))
+                tokens=word_tokenize(text2int(str.lower(sample['question'])))
                 values_onehot = np.zeros(len(tokens))
                 try:
                     values_onehot[tokens.index(start_token)] = 1

@@ -75,6 +75,74 @@ def pad(sentences, pad_token=0):
 	
     return padded, lengths
 
+def text2int (textnum, numwords={}):
+    """
+    Converts string of length n with numbers written in letters into actual numbers of same length
+
+    Args:
+        textnum [Str] : string
+        numwords [Dictionry]: dictonary of keywords that replaces text with numbers
+    Returns:
+        curstring [Str]: corrected string
+    """
+    if not numwords:
+        units = [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
+        "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+        "sixteen", "seventeen", "eighteen", "nineteen",
+        ]
+
+        tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
+
+        for idx, word in enumerate(units):  numwords[word] = (1, idx)
+        for idx, word in enumerate(tens):       numwords[word] = (1, idx * 10)
+
+    ordinal_words = {'first':1, 'second':2, 'third':3, 'fourth':4, 'fifth':5, 'sixth':6, 'seventh':7, 'eighth':8, 'ninth':9, 'tenth':10, 'twelfth':12}
+    ordinal_endings = [('ieth', 'y')]
+
+    textnum = textnum.replace('-', ' ')
+
+    current = result = 0
+    curstring = ""
+    onnumber = False
+    num_tokens=len(textnum.split())
+    tokens=textnum.split()
+    for word in tokens:
+        if word in ordinal_words:
+            scale, increment = (1, ordinal_words[word])
+            current = current * scale + increment
+            if scale > 100:
+                result += current
+                current = 0
+            onnumber = True
+        else:
+            for ending, replacement in ordinal_endings:
+                if word.endswith(ending):
+                    word = "%s%s" % (word[:-len(ending)], replacement)
+
+            if word not in numwords:
+                if onnumber:
+                    curstring += repr(result + current) + " "
+                if num_tokens-1 == tokens.index(word):
+                    curstring += word + ""  
+                else:  
+                    curstring += word + " "
+                result = current = 0
+                onnumber = False
+            else:
+                scale, increment = numwords[word]
+
+                current = current * scale + increment
+                if scale > 100:
+                    result += current
+                    current = 0
+                onnumber = True
+
+    if onnumber:
+        curstring += repr(result + current)
+
+    return curstring
+
 def make_dirs(directory,name):
     try:
         os.mkdir(directory+f'/{name}_train')
