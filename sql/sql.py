@@ -463,7 +463,7 @@ class SQLStatement():
         string_where = [str(where) for where in self.WHERE]
         string_group = [str(group) for group in self.GROUPBY]
         string_having = [str(having) for having in self.HAVING]
-        string_order = [f"{str(order)} {orderop} {limitvalue}" for order, orderop, limitvalue in zip_longest(self.ORDERBY, self.ORDERBY_OP, [self.LIMIT_VALUE], fillvalue="")]
+        string_order = [f"{str(order)} {orderop} {limitvalue}" for order, orderop, limitvalue in zip_longest(self.ORDERBY, self.ORDERBY_OP, [self.LIMIT_VALUE], fillvalue="") if self.ORDERBY]
 
         if not self.TABLE :
             self.TABLE = self.COLS[0].column.table_name

@@ -51,7 +51,7 @@ class ValuePredictor(BasePredictor):
         if gpu: pos_weight = pos_weight.cuda()
         self.bce_logit = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-    def forward(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, col_idx):
+    def forward(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len):
         """
         Args:
             q_emb_var [batch_size, question_seq_len, embedding_dim] : embedding of question
@@ -62,7 +62,6 @@ class ValuePredictor(BasePredictor):
             col_len [batch_size] : number of columns for each query
             col_name_len [batch_size*num_cols_in_db] : number of tokens for each column name. 
                                         Each column has infomation about [type, table, name_token1, name_token2,...]
-            col_idx int: Index of the column which we are predicting the value for 
         Returns:
             num_cols = [batch_size, max_num_cols] : probability distribution over how many columns should be predicted
             p_col [batch_size, num_columns_in_db] : probability distribution over the columns given
@@ -73,10 +72,6 @@ class ValuePredictor(BasePredictor):
         hs_enc,_ = self.hs_lstm(hs_emb_var, hs_len)  # [batch_size, history_seq_len, hidden_dim]
         _, col_enc = self.col_lstm(col_emb_var, col_name_len) # [batch_size*num_cols_in_db, hidden_dim]
         col_enc = col_enc.reshape(batch_size, col_len.max(), self.hidden_dim) # [batch_size, num_cols_in_db, hidden_dim]
-
-        # Get encoding of the column we are prediting the op for
-        #col_enc = col_enc[np.arange(batch_size),col_idx].unsqueeze(1) # [batch_size, 1, hidden_dim]
-
 
         #############################
         # Predict number of tokens  #
@@ -116,7 +111,7 @@ class ValuePredictor(BasePredictor):
         col_emb_var = col_emb_var.reshape(batch_size*num_cols_in_db, col_name_lens, embedding_dim) 
         col_name_len = col_name_len.reshape(-1)
 
-        return self(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, batch['column_idx'])
+        return self(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len)
 
     def loss(self, prediction, batch):
         loss = 0

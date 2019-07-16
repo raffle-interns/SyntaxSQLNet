@@ -7,7 +7,7 @@ from sql.sql import SQLStatement, DataBase, SQL_KEYWORDS, SQL_COND_OPS, SQL_AGG,
 import numpy as np
 import torch
 from itertools import chain
-from utils import pad, text2int
+from utils.utils import pad, text2int
 import os
 from nltk.tokenize import word_tokenize
 import re
