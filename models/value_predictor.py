@@ -17,7 +17,7 @@ class ValuePredictor(BasePredictor):
     Similar to ColPredictor, but instead predict the start index of the value token, 
     and how many of proceeding tokens to include.
     """
-    def __init__(self, max_num_tokens=5, *args, **kwargs):
+    def __init__(self, max_num_tokens=10, *args, **kwargs):
         self.max_num_tokens = max_num_tokens
         super(ValuePredictor, self).__init__(*args, **kwargs)
 
@@ -75,7 +75,7 @@ class ValuePredictor(BasePredictor):
         col_enc = col_enc.reshape(batch_size, col_len.max(), self.hidden_dim) # [batch_size, num_cols_in_db, hidden_dim]
 
         # Get encoding of the column we are prediting the op for
-        col_enc = col_enc[np.arange(batch_size),col_idx].unsqueeze(1) # [batch_size, 1, hidden_dim]
+        #col_enc = col_enc[np.arange(batch_size),col_idx].unsqueeze(1) # [batch_size, 1, hidden_dim]
 
 
         #############################
@@ -83,8 +83,8 @@ class ValuePredictor(BasePredictor):
         #############################
 
         # Run conditional encoding for column|question, and history|question
-        H_col_q = self.col_q_num(q_enc, col_enc, q_len, col_len)  # [batch_size, hidden_dim]
-        H_hs_q = self.hs_q_num(hs_enc, col_enc, hs_len, col_len)  # [batch_size, hidden_dim]
+        H_col_q = self.col_q_num(col_enc, q_enc, col_len, q_len)  # [batch_size, hidden_dim]
+        H_hs_q = self.hs_q_num(hs_enc, q_enc, hs_len, q_len)  # [batch_size, hidden_dim]
 
         num_tokens = self.tokens_num_out(H_col_q + int(self.use_hs)*H_hs_q)
 
@@ -93,9 +93,9 @@ class ValuePredictor(BasePredictor):
         ################################
 
         # Run conditional encoding for question|column, and history|column
-        H_col_q = self.col_q(q_enc, col_enc, q_len, col_len)  # [batch_size, question_seq_len, hidden_dim]
-        H_hs_q = self.hs_q(hs_enc, col_enc, hs_len, col_len)  # [batch_size, question_seq_len, hidden_dim]
-        H_value = self.W_value(col_enc)  # [batch_size, question_seq_len, hidden_dim]
+        H_col_q = self.col_q(col_enc, q_enc, col_len, q_len)  # [batch_size, question_seq_len, hidden_dim]
+        H_hs_q = self.hs_q(hs_enc, q_enc, hs_len, q_len)  # [batch_size, question_seq_len, hidden_dim]
+        H_value = self.W_value(q_enc)  # [batch_size, question_seq_len, hidden_dim]
 
         values = self.value_out(H_col_q + int(self.use_hs)*H_hs_q + H_value).squeeze(2)  # [batch_size, question_seq_len]
         values_mask = length_to_mask(q_len).squeeze(2).to(values.device)
@@ -141,10 +141,10 @@ class ValuePredictor(BasePredictor):
         tokens_num_truth = tokens_num_truth.to(tokens_num_score.device)-1
         value_truth = value_truth.to(value_score.device)
 
-        mask = value_score != self.col_pad_token
+        mask = value_score != self.value_pad_token
 
         # Add cross entropy loss over the number of keywords
-        loss += self.cross_entropy(tokens_num_score, tokens_num_truth)
+        loss += self.cross_entropy(tokens_num_score, tokens_num_truth.squeeze(1))
 
         # And binary cross entropy over the keywords predicted
         loss += self.bce_logit(value_score[mask], value_truth[mask])
@@ -176,11 +176,11 @@ class ValuePredictor(BasePredictor):
 
         # Predict the number of columns as the argmax of the scores
         tokens_num_prediction = torch.argmax(tokens_num_score, dim=1)
-        accuracy_num = (tokens_num_prediction+1 == tokens_num_truth).sum().float()/batch_size
+        accuracy_num = (tokens_num_prediction+1 == tokens_num_truth.squeeze(1)).sum().float()/batch_size
 
         accuracy_value = (torch.argmax(value_score, dim=1) == torch.argmax(value_truth, dim=1)).sum().float()/batch_size
         
-        return accuracy_num, accuracy_value
+        return accuracy_num.detach().cpu().numpy(), accuracy_value.detach().cpu().numpy()
 
 
     def predict(self, *args):

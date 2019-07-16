@@ -13,9 +13,10 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
     train_writer = SummaryWriter(log_dir=f'logs/{name}_train')
     val_writer = SummaryWriter(log_dir=f'logs/{name}_val')
     optimizer = Adam(model.parameters(), lr=lr)
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    embedding = embedding.to(device)
-    if device == torch.device('cuda'): model.cuda()
+
+    if model.gpu:
+        embedding.cuda()
+        model.cuda()
 
     best_loss = float('inf')    
 
@@ -40,7 +41,7 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
             if isinstance(accuracy, tuple):
                 accuracy_num, accuracy = accuracy
                 _, prediction = prediction
-                accuracy_num_train += [accuracy_num.detach().cpu().numpy()]
+                accuracy_num_train += [accuracy_num]
 
             accuracy_train += [accuracy]
 
@@ -69,7 +70,7 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
                 if isinstance(accuracy, tuple):
                     accuracy_num, accuracy = accuracy
                     _, prediction = prediction
-                    accuracy_num_val += [accuracy_num.detach().cpu().numpy()]
+                    accuracy_num_val += [accuracy_num]
 
                 accuracy_val += [accuracy]
 
@@ -100,7 +101,7 @@ if __name__ == '__main__':
     parser.add_argument('--save', default=True, type=bool)
     parser.add_argument('--dropout', default=0.3, type=float)
     parser.add_argument('--embedding_dim',default=300, type=int)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='limitvalue')
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='value')
     args = parser.parse_args()
 
     # Load pre-trained embeddings and dataset
