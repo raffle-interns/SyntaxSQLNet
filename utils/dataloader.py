@@ -170,7 +170,7 @@ class SpiderDataset(Dataset):
                 columns_onehot[columns_idx] = 1
                 num_columns = len(columns_idx)
 
-                dataset.append({'columns_all':columns_all_splitted, 'num_columns': num_columns, 'columns': columns_onehot, 'question': question, 'history': history, 'db': db, 'sql': sql})
+                dataset.append({'columns_all':columns_all_splitted, 'num_columns': [num_columns], 'columns': columns_onehot, 'question': question, 'history': history, 'db': db, 'sql': sql})
 
         return ModularDataset(dataset, name='Column')
 
@@ -311,7 +311,7 @@ class SpiderDataset(Dataset):
                     pass
                 
 
-                dataset.append({'columns_all':columns_all_splitted, 'column_idx': column_idx, 'value': values_onehot, 'num_tokens':num_tokens, 'question': question, 'history': history, 'db': db, 'sql': sql})
+                dataset.append({'columns_all':columns_all_splitted, 'column_idx': column_idx, 'value': values_onehot, 'num_tokens':[num_tokens], 'question': question, 'history': history, 'db': db, 'sql': sql})
 
         return ModularDataset(dataset, name='Value')
 
