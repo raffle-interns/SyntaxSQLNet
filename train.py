@@ -94,7 +94,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_layers', default=2, type=int)
     parser.add_argument('--lr', default=1e-3, type=float)
-    parser.add_argument('--num_epochs',  default=100, type=int)
+    parser.add_argument('--num_epochs',  default=50, type=int)
     parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--name_postfix',default='', type=str)
     parser.add_argument('--use_gpu', default=True, type=bool)
@@ -103,13 +103,13 @@ if __name__ == '__main__':
     parser.add_argument('--dropout', default=0.3, type=float)
     parser.add_argument('--embedding_dim',default=300, type=int)
     parser.add_argument('--num_augmentation', default=0 , type=int)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='agg')
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='value')
     args = parser.parse_args()
 
     # Load training and validation sets
     
-    #spider_train = AugmentedSpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', aug_data_path='/data/train_augment.json', aug_tables_path='/data/wikisql_tables.json', exclude_keywords=[ '-', ' / ', ' + '], max_count=args.num_augmentation)
-    spider_train = SpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', exclude_keywords=[ '-', ' / ', ' + '])
+    spider_train = AugmentedSpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', aug_data_path='/data/train_augment.json', aug_tables_path='/data/wikisql_tables.json', exclude_keywords=[ '-', ' / ', ' + '], max_count=args.num_augmentation)
+    #spider_train = SpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', exclude_keywords=[ '-', ' / ', ' + '])
     spider_dev = SpiderDataset(data_path='data/dev.json', tables_path='/data/tables.json', exclude_keywords=[ '-', ' / ', ' + '])
 
     # Load pre-trained embeddings and dataset

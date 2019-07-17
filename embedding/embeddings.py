@@ -53,7 +53,7 @@ class PretrainedEmbedding(Module):
         # TODO: should we use shlex to split, to have words in quotes stay as one word? 
         # maybe these would just be unkown words though
         # Replace () since these might occur in column names for some reason
-        sentences_words = [word_tokenize(sentence.replace('(', '').strip(')')) for sentence in sentences]
+        sentences_words = [word_tokenize(sentence) for sentence in sentences]
         lenghts = [len(sentence) for sentence in sentences_words]
         max_len = max(lenghts)
 
@@ -133,7 +133,7 @@ class PretrainedEmbedding(Module):
         # Join the column tokens to align the way we split them        
         columns_joined = [[' '.join(column) for column in columns_batch] for columns_batch in columns]
         # Get the number of tokens in each column
-        col_name_lengths = [[len(word_tokenize(column.replace('(', '').strip(')'))) for column in columns_batch] for columns_batch in columns_joined]
+        col_name_lengths = [[len(word_tokenize(column)) for column in columns_batch] for columns_batch in columns_joined]
         # Get the maximum number of tokens for all columns
         max_col_name_len = max([max(col_name_len) for col_name_len in col_name_lengths])
 

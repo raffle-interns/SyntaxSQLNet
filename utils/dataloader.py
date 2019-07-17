@@ -291,7 +291,7 @@ class SpiderDataset(Dataset):
                 column_idx = columns_all.index(condition.column.to_list())
 
                 # Get target value
-                value = word_tokenize(str.lower(condition.value).strip('".%\''))
+                value = word_tokenize(str.lower(condition.value))
                 
                 if value:
                     start_token = value[0]
@@ -302,7 +302,6 @@ class SpiderDataset(Dataset):
                     num_tokens = 1
                 
                 #Convert to onehot encoding
-                #TODO make Words to number: five -> 5
                 tokens=word_tokenize(text2int(str.lower(sample['question'])))
                 values_onehot = np.zeros(len(tokens))
                 try:
