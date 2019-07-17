@@ -102,12 +102,15 @@ if __name__ == '__main__':
     parser.add_argument('--save', default=True, type=bool)
     parser.add_argument('--dropout', default=0.3, type=float)
     parser.add_argument('--embedding_dim',default=300, type=int)
+    parser.add_argument('--num_augmentation', default=0 , type=int)
     parser.add_argument('--model', choices=list(model_list.models.keys()), default='agg')
     args = parser.parse_args()
 
     # Load training and validation sets
-    spider_train = AugmentedSpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', aug_data_path='/data/train_augment.json', aug_tables_path='/data/wikisql_tables.json', exclude_keywords=[ '-', ' / ', ' + '], max_count=10000)
-    spider_dev = SpiderDataset(data_path='data/'+'dev.json', tables_path='/data/'+'tables.json', exclude_keywords=[ '-', ' / ', ' + '])
+    
+    #spider_train = AugmentedSpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', aug_data_path='/data/train_augment.json', aug_tables_path='/data/wikisql_tables.json', exclude_keywords=[ '-', ' / ', ' + '], max_count=args.num_augmentation)
+    spider_train = SpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', exclude_keywords=[ '-', ' / ', ' + '])
+    spider_dev = SpiderDataset(data_path='data/dev.json', tables_path='/data/tables.json', exclude_keywords=[ '-', ' / ', ' + '])
 
     # Load pre-trained embeddings and dataset
     emb = GloveEmbedding(path='data/'+f'glove.6B.{args.embedding_dim}d.txt')
@@ -121,12 +124,12 @@ if __name__ == '__main__':
     validation_set = getattr(spider_dev, func_name)()
 
     # Initialize data loaders
-    dl_train = DataLoader(train_set, batch_size=args.batch_size, collate_fn=try_tensor_collate_fn)
-    dl_validation = DataLoader(validation_set, batch_size=args.batch_size, collate_fn=try_tensor_collate_fn)
+    dl_train = DataLoader(train_set, batch_size=args.batch_size, collate_fn=try_tensor_collate_fn, shuffle=True)
+    dl_validation = DataLoader(validation_set, batch_size=args.batch_size, collate_fn=try_tensor_collate_fn, shuffle=True)
 
     # Train our model
     train(model, dl_train, dl_validation, emb, 
-            name=f'{args.model}__num_layers={args.num_layers}__lr={args.lr}__dropout={args.dropout}__batch_size={args.batch_size}__embedding_dim={args.embedding_dim}__hidden_dim={args.hidden_dim}__epoch={args.num_epochs}__{args.name_postfix}', 
+            name=f'{args.model}__num_layers={args.num_layers}__lr={args.lr}__dropout={args.dropout}__batch_size={args.batch_size}__embedding_dim={args.embedding_dim}__hidden_dim={args.hidden_dim}__epoch={args.num_epochs}__num_augmentation={args.num_augmentation}__{args.name_postfix}', 
             num_epochs=args.num_epochs,
             lr=args.lr,
             save=args.save)
