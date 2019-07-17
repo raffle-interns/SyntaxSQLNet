@@ -102,11 +102,10 @@ if __name__ == '__main__':
     parser.add_argument('--save', default=True, type=bool)
     parser.add_argument('--dropout', default=0.3, type=float)
     parser.add_argument('--embedding_dim',default=300, type=int)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='op')
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='agg')
     args = parser.parse_args()
 
     # Load training and validation sets
-    #spider_train = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=[ '-', ' / ', ' + '])
     spider_train = AugmentedSpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', aug_data_path='/data/train_augment.json', aug_tables_path='/data/wikisql_tables.json', exclude_keywords=[ '-', ' / ', ' + '], max_count=10000)
     spider_dev = SpiderDataset(data_path='data/'+'dev.json', tables_path='/data/'+'tables.json', exclude_keywords=[ '-', ' / ', ' + '])
 

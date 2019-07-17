@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sql.sql import SQLStatement, DataBase, SQL_KEYWORDS, SQL_COND_OPS, SQL_AGG, SQL_OPS, SQL_ORDERBY_OPS, SQL_DISTINCT_OP
 import numpy as np
 from utils.dataloader import SpiderDataset
-from random import shuffle
+import random
 
 class AugmentedSpiderDataset(SpiderDataset):
     """
@@ -82,7 +82,7 @@ class AugmentedSpiderDataset(SpiderDataset):
             print(f"{failed}/{len(self.data)} queries could not be loaded")
 
         # Shuffle to mix augmented samples with training set
-        shuffle(self.samples)
+        random.Random(1300135).shuffle(self.samples)
 
     def generate_augmented_samples(self, aug_data_path, max_count=5000, percentage=5):
         directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -151,5 +151,5 @@ class AugmentedSpiderDataset(SpiderDataset):
 
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
-    spider = AugmentedSpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', aug_data_path='/data/train_augment.json', exclude_keywords=['-', ' / ', ' + '])
+    spider = AugmentedSpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', aug_data_path='/data/train_augment.json', aug_tables_path='/data/wikisql_tables.json', exclude_keywords=['-', ' / ', ' + '])
     dat = spider.generate_limitvalue_dataset()
