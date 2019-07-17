@@ -51,12 +51,13 @@ class SQLStatement():
     def component_match(self, other):
         return ( 
             set(self.COLS)==set(other.COLS),
-            set(self.WHERE)==set(other.WHERE),
-            set(self.GROUPBY)==set(other.GROUPBY),
+            set(self.WHERE)==set(other.WHERE) if self.WHERE else None,
+            set(self.GROUPBY)==set(other.GROUPBY) if self.GROUPBY else None,
             set(self.ORDERBY)==set(other.ORDERBY)
-                and set(self.ORDERBY_OP)==set(other.ORDERBY_OP),
-            set(self.HAVING)==set(other.HAVING),
-            str(self.LIMIT_VALUE)==str(other.LIMIT_VALUE)
+                and set(self.ORDERBY_OP)==set(other.ORDERBY_OP) if self.ORDERBY else None,
+            set(self.HAVING)==set(other.HAVING) if self.HAVING else None,
+            str(self.LIMIT_VALUE)==str(other.LIMIT_VALUE) if self.LIMIT_VALUE else None,
+            self.keywords == other.keywords
         )
          
     @property
