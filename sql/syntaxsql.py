@@ -235,7 +235,7 @@ class SyntaxSQL():
                 self.generate_value(column)
                 
                 #If we predict multiple columns in where or having, we need to also predict and/or
-                if num_cols>1 and i>0 :
+                if num_cols>1 and i<(num_cols-1):
                     self.generate_andor(column)
 
             if self.current_keyword in ('orderby','select','having'):
