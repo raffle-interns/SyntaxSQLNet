@@ -52,7 +52,7 @@ class PretrainedEmbedding(Module):
         # Convert list of sentences to list of list of tokens
         # TODO: should we use shlex to split, to have words in quotes stay as one word? 
         # maybe these would just be unkown words though
-
+        # Replace () since these might occur in column names for some reason
         sentences_words = [word_tokenize(sentence.replace('(', '').strip(')')) for sentence in sentences]
         lenghts = [len(sentence) for sentence in sentences_words]
         max_len = max(lenghts)

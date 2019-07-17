@@ -48,7 +48,17 @@ class SQLStatement():
              and set(self.HAVING)==set(other.HAVING)
              and str(self.LIMIT_VALUE)==str(other.LIMIT_VALUE)
         )
-        
+    def component_match(self, other):
+        return ( 
+            set(self.COLS)==set(other.COLS),
+            set(self.WHERE)==set(other.WHERE),
+            set(self.GROUPBY)==set(other.GROUPBY),
+            set(self.ORDERBY)==set(other.ORDERBY)
+                and set(self.ORDERBY_OP)==set(other.ORDERBY_OP),
+            set(self.HAVING)==set(other.HAVING),
+            str(self.LIMIT_VALUE)==str(other.LIMIT_VALUE)
+        )
+         
     @property
     def keywords(self):
         keywords = []
@@ -144,7 +154,11 @@ class SQLStatement():
                     # shlex doesn't split substrings in quotes, e.g 
                     # 'book = "long title with multiple words"' -> ['book','=','long title with multiple words']
                     column, op, value = re.findall(r'(.*\(.*?\)|\'.*?\'|".*?"|NOT LIKE|\S+)',condition)             
-
+                    
+                    # Remove ",' and %, since this will be added when we generate the string of the sql
+                    # getting the case of the string correct is almost impossible, so just assume that
+                    # the lower case version is enough
+                    value = str.lower(value.strip('\'"%'))
                     column = str.lower(column).strip()
                     conditional_op = conditional_op.strip()
                     column = self.database.get_column(column, self.TABLE)
@@ -185,7 +199,11 @@ class SQLStatement():
                     # Columns with aggregators might include the distinct keyword
                     if 'distinct' in column:
                         distinct, column = column.split()
-
+                    
+                    # Remove " and %, since this will be added when we generate the string of the sql
+                    # getting the case of the string correct is almost impossible, so just assume that
+                    # the lower case version is enough
+                    value = str.lower(value.strip('\'"%'))
                     conditional_op = conditional_op.strip()
                     column = self.database.get_column(column, self.TABLE)
                     self.HAVING.append(Condition(column, op, value, conditional_op, agg, distinct))
@@ -463,7 +481,7 @@ class SQLStatement():
         string_where = [str(where) for where in self.WHERE]
         string_group = [str(group) for group in self.GROUPBY]
         string_having = [str(having) for having in self.HAVING]
-        string_order = [f"{str(order)} {orderop} {limitvalue}" for order, orderop, limitvalue in zip_longest(self.ORDERBY, self.ORDERBY_OP, [self.LIMIT_VALUE], fillvalue="")]
+        string_order = [f"{str(order)} {orderop} {limitvalue}" for order, orderop, limitvalue in zip_longest(self.ORDERBY, self.ORDERBY_OP, [self.LIMIT_VALUE], fillvalue="") if self.ORDERBY]
 
         if not self.TABLE :
             self.TABLE = self.COLS[0].column.table_name
@@ -550,17 +568,26 @@ class Condition():
         assert self.op in SQL_OPS, f"{self.op} is not an SQL operation"
         assert self.cond_op in SQL_COND_OPS, f"{self.cond_op} is not an SQL conditional operator (AND/OR)"
 
-        #Like statement assumes that the value is a substring, so add wildcards before and after
-        if "like" in self.op:
-            return f"{self.column_select} {self.op} %{self.value}% {self.cond_op}"
-
+        if self.column.column_type == 'text':
+            # Like statement assumes that the value is a substring, so add wildcards before and after
+            # We also need to add quotes to text columns
+            if "LIKE" in self.op:
+                return f'{self.column_select} {self.op} "%{self.value}%" {self.cond_op}'
+            else:
+                return f'{self.column_select} {self.op} "{self.value}" {self.cond_op}'
+        # the value here should just be a number, so no quotes needed        
         return f"{self.column_select} {self.op} {self.value} {self.cond_op}"
     
     def __eq__(self, other):
         if not isinstance(other, Condition):
             return NotImplemented
         
-        return self.column_select==other.column_select and self.op==other.op and self.cond_op==other.cond_op
+        return (
+            self.column_select==other.column_select and 
+            self.op==other.op and 
+            self.cond_op==other.cond_op and
+            self.value == other.value
+            )
         #return str(self) == str(other)
 
     def __hash__(self):

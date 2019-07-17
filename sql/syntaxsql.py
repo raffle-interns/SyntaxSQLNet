@@ -8,7 +8,9 @@ from models.col_predictor import ColPredictor
 from models.agg_predictor import AggPredictor
 from models.limit_value_predictor import LimitValuePredictor
 from models.distinct_predictor import DistinctPredictor
+from models.value_predictor import ValuePredictor
 from sql.sql import SQLStatement, Condition, ColumnSelect, SQL_OPS, SQL_AGG, SQL_COND_OPS, SQL_KEYWORDS, SQL_DISTINCT_OP, SQL_ORDERBY_OPS
+from nltk.tokenize import word_tokenize
 
 class SyntaxSQL():
     """
@@ -27,7 +29,8 @@ class SyntaxSQL():
         self.agg_predictor = AggPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
         self.limit_value_predictor = LimitValuePredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
         self.distinct_predictor = DistinctPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
-
+        self.value_predictor = ValuePredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
+        
         try:
             self.having_predictor.load(f'saved_models/having__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.keyword_predictor.load(f'saved_models/keyword__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
@@ -38,7 +41,7 @@ class SyntaxSQL():
             self.distinct_predictor.load(f'saved_models/distinct__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.agg_predictor.load(f'saved_models/agg__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
             self.limit_value_predictor.load(f'saved_models/limitvalue__num_layers={num_layers}__lr=0.001__dropout=0.3__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')     
-
+            self.value_predictor.load(f'saved_models/value__num_layers={num_layers}__lr=0.001__dropout=0.3__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')
         except FileNotFoundError as ex:
             print(ex)
 
@@ -184,7 +187,26 @@ class SyntaxSQL():
             self.sql.HAVING[-1].agg = agg
     
     def generate_value(self, column):
-        pass
+        
+        # get the history, from the current sql
+        history = self.sql.generate_history()
+        hs_emb_var, hs_len = self.embeddings.get_history_emb([history['value'][-1]])
+
+        num_tokens, start_index = self.value_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len)
+
+        num_tokens, start_index = int(num_tokens[0]), int(start_index[0])
+        tokens=word_tokenize(str.lower(self.question))
+
+        try:
+            value = ' '.join(tokens[start_index:start_index+num_tokens])
+            
+            if self.current_keyword == 'where':
+                self.sql.WHERE[-1].value = value
+            elif self.current_keyword == 'having':
+                self.sql.HAVING[-1].value = value
+        # The value might not exist in the question, so just ignore it
+        except:
+            pass
 
     def generate_columns(self):
 
@@ -213,7 +235,7 @@ class SyntaxSQL():
                 self.generate_value(column)
                 
                 #If we predict multiple columns in where or having, we need to also predict and/or
-                if num_cols>1 and i>0 :
+                if num_cols>1 and i<(num_cols-1):
                     self.generate_andor(column)
 
             if self.current_keyword in ('orderby','select','having'):

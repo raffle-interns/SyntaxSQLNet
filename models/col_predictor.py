@@ -136,7 +136,7 @@ class ColPredictor(BasePredictor):
         mask = col_score != self.col_pad_token
 
         # Add cross entropy loss over the number of keywords
-        loss += self.cross_entropy(col_num_score, col_num_truth)
+        loss += self.cross_entropy(col_num_score, col_num_truth.squeeze(1))
 
         # And binary cross entropy over the keywords predicted
         loss += self.bce_logit(col_score[mask], col_truth[mask])
@@ -168,7 +168,7 @@ class ColPredictor(BasePredictor):
 
         # Predict the number of columns as the argmax of the scores
         kw_num_prediction = torch.argmax(col_num_score, dim=1)
-        accuracy_num = (kw_num_prediction+1 == col_num_truth).sum().float()/batch_size
+        accuracy_num = (kw_num_prediction+1 == col_num_truth.squeeze(1)).sum().float()/batch_size
 
         correct_keywords = 0
         for i in range(batch_size):
@@ -179,7 +179,7 @@ class ColPredictor(BasePredictor):
             correct_keywords += set(torch.argsort(-col_truth[i, :])[:num_kw].cpu().numpy()) == set(torch.argsort(-col_score[i, :])[:num_kw].cpu().numpy())
         accuracy_kw = correct_keywords/batch_size
 
-        return accuracy_num, accuracy_kw
+        return accuracy_num.detach().cpu().numpy(), accuracy_kw
 
 
     def predict(self, *args):

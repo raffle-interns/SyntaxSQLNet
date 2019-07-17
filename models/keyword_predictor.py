@@ -146,4 +146,4 @@ class KeyWordPredictor(BasePredictor):
             correct_keywords += set(torch.argsort(-kw_truth[i,:])[:num_kw].cpu().numpy()) == set(torch.argsort(-kw_score[i,:])[:num_kw].cpu().numpy())
         accuracy_kw = correct_keywords/batch_size
 
-        return accuracy_num, accuracy_kw
+        return accuracy_num.detach().cpu().numpy(), accuracy_kw
