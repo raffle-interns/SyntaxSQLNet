@@ -5,6 +5,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from utils.dataloader import SpiderDataset, try_tensor_collate_fn
+from utils.data_augmentation import AugmentedSpiderDataset
 from embedding.embeddings import GloveEmbedding
 from models import model_list
 import argparse
@@ -91,7 +92,7 @@ if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_layers', default=2, type=int)
-    parser.add_argument('--lr', default=0.001, type=float)
+    parser.add_argument('--lr', default=1e-3, type=float)
     parser.add_argument('--num_epochs',  default=100, type=int)
     parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--name_postfix',default='', type=str)
@@ -100,13 +101,16 @@ if __name__ == '__main__':
     parser.add_argument('--save', default=True, type=bool)
     parser.add_argument('--dropout', default=0.3, type=float)
     parser.add_argument('--embedding_dim',default=300, type=int)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='limitvalue')
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='op')
     args = parser.parse_args()
+
+    # Load training and validation sets
+    #spider_train = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=[ '-', ' / ', ' + '])
+    spider_train = AugmentedSpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', aug_data_path='/data/train_augment.json', aug_tables_path='/data/wikisql_tables.json', exclude_keywords=[ '-', ' / ', ' + '], max_count=10000)
+    spider_dev = SpiderDataset(data_path='data/'+'dev.json', tables_path='/data/'+'tables.json', exclude_keywords=[ '-', ' / ', ' + '])
 
     # Load pre-trained embeddings and dataset
     emb = GloveEmbedding(path='data/'+f'glove.6B.{args.embedding_dim}d.txt')
-    spider_train = SpiderDataset(data_path='data/'+'train.json', tables_path='/data/'+'tables.json', exclude_keywords=[ '-', ' / ', ' + '])
-    spider_dev = SpiderDataset(data_path='data/'+'dev.json', tables_path='/data/'+'tables.json', exclude_keywords=[ '-', ' / ', ' + '])
 
     # Select appropriate model to train
     model = model_list.models[args.model](N_word=args.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)

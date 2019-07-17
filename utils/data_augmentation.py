@@ -12,7 +12,7 @@ class AugmentedSpiderDataset(SpiderDataset):
     """
     Extension of a wrapper around the Spider dataset that allows for easy data augmentation.
     """
-    def __init__(self, data_path, tables_path, aug_data_path, exclude_keywords=[], debug=True, language='en', max_count=10000):
+    def __init__(self, data_path, tables_path, aug_data_path, aug_tables_path, exclude_keywords=[], debug=True, language='en', max_count=10000):
         """
         Args:
             data_path (string): file path of the data json file with questions
@@ -41,13 +41,21 @@ class AugmentedSpiderDataset(SpiderDataset):
                 print(f"Found {exclude_keywords_counts[keyword]} queries with excluded keyword {keyword}")
             print(f"Total number of removed queries = {len(data) - len(self.data)} / {len(data)}")
 
-        tables = json.load(open(directory + '/' + tables_path, 'r'))
-
-        # Change the key of the dictionary to the db_id
         self.tables = {}
-        for table in tables:
-            db_id = table['db_id']
-            self.tables[db_id] = table
+
+        def add_tables_to_dict(path):
+            tables = json.load(open(directory + '/' + path, 'r'))
+            for table in tables:
+                db_id = table['db_id']
+                self.tables[db_id] = table
+
+        # Load tables into dictionary
+        add_tables_to_dict(aug_tables_path)
+        num_aug_dbs = len(self.tables)
+        add_tables_to_dict(tables_path)
+        num_reg_dbs = len(self.tables) - num_aug_dbs
+        print('Databases in augmentation set:', num_aug_dbs)
+        print('Databases in regular training set:', num_reg_dbs)
 
         # Generate augmented samples
         self.samples = []
@@ -76,13 +84,13 @@ class AugmentedSpiderDataset(SpiderDataset):
         # Shuffle to mix augmented samples with training set
         shuffle(self.samples)
 
-    def generate_augmented_samples(self, aug_data_path, max_count=5000, percentage=10):
+    def generate_augmented_samples(self, aug_data_path, max_count=5000, percentage=5):
         directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         data = json.load(open(directory + aug_data_path, 'r', encoding="utf8"))
         count = 0
 
         # Get database name
-        for db_name in self.tables:
+        for db_idx, db_name in enumerate(self.tables):
             
             # Generate database object
             db = DataBase(self.tables[db_name])
@@ -123,8 +131,8 @@ class AugmentedSpiderDataset(SpiderDataset):
 
                         for question in entry['question']:
 
-                            # Use approx. 1/2 of all questions
-                            if (hashval + hash(question) + count) % 20 > 10: continue
+                            # Use approx. 1/8 of all questions
+                            if (hashval + hash(question) + count) % 80 > 10: continue
                             
                             # Generate question and add to sample list
                             question = question.replace('{COLUMN}', column_name).replace('{COLUMN2}', column_name_2).replace('{TABLE}', table_names[table_idx])
@@ -132,13 +140,13 @@ class AugmentedSpiderDataset(SpiderDataset):
                             self.samples += [sample]
                             count += 1
                             if count == max_count:
-                                print(f'Generated {count} samples. Proceeding...')
+                                print(f'Generated {count} samples using {db_idx}/{len(self.tables)} databases. Proceeding...')
                                 return
                     
                     except:
                         continue
 
-        print(f'Generated {count} samples. Proceeding...')
+        print(f'Generated {count} samples using all databases. Proceeding...')
 
 
 if __name__ == '__main__':
