@@ -125,16 +125,23 @@ class PretrainedEmbedding(Module):
         # Get the number of columns in each database
         lengths = [len(column) for column in columns]
 
+
         # Get the number of tokens for each column, eg ['tablename','text','column','with','long','name']
         col_name_lengths = [[len(word) for word in column] for column in columns]
         max_len = max(lengths)
+
+        # Join the column tokens to align the way we split them        
+        columns_joined = [[' '.join(column) for column in columns_batch] for columns_batch in columns]
+        # Get the number of tokens in each column
+        col_name_lengths = [[len(word_tokenize(column)) for column in columns_batch] for columns_batch in columns_joined]
+        # Get the maximum number of tokens for all columns
         max_col_name_len = max([max(col_name_len) for col_name_len in col_name_lengths])
 
         # Embeddings will have shape (batch size, # of columns, # of words in col name, embedding dim)
         embeddings = torch.zeros(batch_size, max_len, max_col_name_len, self.embedding_dim).to(self.embedding.weight.device)
         col_name_lengths = np.zeros((batch_size, max_len))
 
-        for i, db in enumerate(columns):
+        for i, db in enumerate(columns_joined):
             if str(db) in self.column_cache:
                 cached_emb, cached_lengths = self.column_cache[str(db)]
 
@@ -148,7 +155,7 @@ class PretrainedEmbedding(Module):
 
             for j, column in enumerate(db):
                 # Embedding takes in a sentence, to concat the words of the column into a sentence
-                column = ' '.join(column)
+                #column = ' '.join(column)
                 emb,col_name_len = self(column)
 
                 # Embeddings: (N, # columns, # words, # features)
@@ -193,7 +200,8 @@ class LaserEmbedding(PretrainedEmbedding):
     """
     def __init__(self):
         super(LaserEmbedding, self).__init__(num_embeddings=1, embedding_dim=1024, word2idx={}, vectors=np.ones((1,1024), dtype=float))
-
+        # Initialize the raffle.ai implementation of LASER
+        self.embedder = LaserSentenceEmbeddings()
     def forward(self, sentences, mean_sequence=True):
         """
         Args:
@@ -212,27 +220,26 @@ class LaserEmbedding(PretrainedEmbedding):
         # Convert list of sentences to list of list of tokens
         # TODO: should we use shlex to split, to have words in quotes stay as one word? 
         #      maybe these would just be unkown words though
-        sentences_words = [word_tokenize(sentence) for sentence in sentences]
+        sentences_words = [word_tokenize(sentence.replace('(', '').strip(')')) for sentence in sentences]
 
         # Define sequence length as max length sentence in batch
         lengths = [len(sentence) for sentence in sentences_words]
         max_len = max(lengths)
         
-        # Initialize the raffle.ai implementation of LASER
-        embedder = LaserSentenceEmbeddings()
+        
         word_embeddings=[]
         
         if mean_sequence:
             # Embed full sentence by taking mean over sequence of words
             for sentence in sentences:
-                word_embeddings.append(embedder(sentence, method="sentence", language='en'))
+                word_embeddings.append(self.embedder(sentence, method="sentence", language='en'))
         
         else:
             # Otherwise embed words seperately (discouraged)
             for sentence, length in zip(sentences_words,lengths):
                 sentences_to_matrix=[]
                 for word in sentence:
-                    sentences_to_matrix.append(embedder(word, method="sentence", language='en'))
+                    sentences_to_matrix.append(self.embedder(word, method="sentence", language='en'))
                 while length<max_len:
                     sentences_to_matrix.append(np.zeros((1,self.embedding_dim), dtype=float))
                     length= length+1
@@ -245,7 +252,7 @@ class LaserEmbedding(PretrainedEmbedding):
         
 
 if __name__ == "__main__":
-    for embedder in [GloveEmbedding(), LaserEmbedding()]:
+    for embedder in [LaserEmbedding()]:
         print('\nTesting functionality of', embedder.__class__.__name__ + '...')
 
         # Verify that sentence embedding works
