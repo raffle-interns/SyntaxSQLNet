@@ -84,10 +84,14 @@ class AugmentedSpiderDataset(SpiderDataset):
         # Shuffle to mix augmented samples with training set
         random.Random(1300135).shuffle(self.samples)
 
-    def generate_augmented_samples(self, aug_data_path, max_count=5000, percentage=5):
+    def generate_augmented_samples(self, aug_data_path, max_count=10000):
         directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         data = json.load(open(directory + aug_data_path, 'r', encoding="utf8"))
         count = 0
+
+        if max_count == 0:
+            print(f'Data augmentation has been disabled. Proceeding...')
+            return
 
         # Get database name
         for db_idx, db_name in enumerate(self.tables):
@@ -115,14 +119,17 @@ class AugmentedSpiderDataset(SpiderDataset):
                 column_name_2 = self.tables[db_name]['column_names'][j][1]
                 column_name_original_2 = self.tables[db_name]['column_names_original'][j][1]
 
-                # Use some percentage of all columns
-                if table_idx == -1 or hashval % 100 > percentage: continue
+                # Use 1/10 of all columns
+                if table_idx == -1 or hashval % 100 > 10: continue
 
                 # Iterate over entries in data augmentation file
                 for entry in data:
 
                     # Generate SQL query
                     query = entry['query'].replace('{COLUMN}', column_name_original).replace('{COLUMN2}', column_name_original_2).replace('{TABLE}', table_names_original[table_idx])
+
+                    # Use approx. 1/20 of all queries
+                    if (hashval + hash(query) + hash(count)) % 200 > 10: continue
 
                     # Generate SQL statement and history
                     try:
@@ -131,8 +138,8 @@ class AugmentedSpiderDataset(SpiderDataset):
 
                         for question in entry['question']:
 
-                            # Use approx. 1/8 of all questions
-                            if (hashval + hash(question) + count) % 80 > 10: continue
+                            # Use approx. 1/2 of all questions
+                            if (hashval + hash(question) + count) % 20 > 10: continue
                             
                             # Generate question and add to sample list
                             question = question.replace('{COLUMN}', column_name).replace('{COLUMN2}', column_name_2).replace('{TABLE}', table_names[table_idx])
