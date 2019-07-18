@@ -18,7 +18,7 @@ class PretrainedEmbedding(Module):
         vectors (numpy array): Matrix with all the embedding vectors
         trainable (bool): 
     """
-    def __init__(self, num_embeddings, embedding_dim, word2idx, vectors, trainable=False, use_column_cache=True):
+    def __init__(self, num_embeddings, embedding_dim, word2idx, vectors, trainable=False, use_column_cache=True, gpu=True):
         super(PretrainedEmbedding, self).__init__()
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
@@ -26,12 +26,14 @@ class PretrainedEmbedding(Module):
         self.vectors = vectors
         self.column_cache={}
         self.use_column_cache = use_column_cache
+        self.gpu = gpu
         self.embedding = Embedding(num_embeddings, embedding_dim, padding_idx=0)
         self.embedding.weight.data.copy_(torch.from_numpy(vectors))
 
         if not trainable:
             self.embedding.weight.requires_grad = False
-
+        if gpu:
+            self.cuda()
     def forward(self, sentences, mean_sequence=False):
         """
         Args:
@@ -144,6 +146,9 @@ class PretrainedEmbedding(Module):
         for i, db in enumerate(columns_joined):
             if str(db) in self.column_cache:
                 cached_emb, cached_lengths = self.column_cache[str(db)]
+                # Cache is stored in RAM
+                if self.gpu:
+                    cached_emb = cached_emb.cuda()
 
                 # Different batches might have different padding, so pick the minumum needed
                 min_size1 = min(cached_emb.size(0), max_len)
@@ -164,7 +169,8 @@ class PretrainedEmbedding(Module):
 
             # Try and cache the embeddings for the columns in the db
             if self.use_column_cache:
-                self.column_cache[str(db)] = (embeddings[i,:,:], col_name_lengths[i,:])
+                # Cache the embeddings on cpu side in RAM
+                self.column_cache[str(db)] = (embeddings[i,:,:].detach().cpu(), col_name_lengths[i,:])
 
         return embeddings, np.asarray(lengths),col_name_lengths
 
@@ -174,7 +180,7 @@ class GloveEmbedding(PretrainedEmbedding):
     Class responsible for GloVe embeddings.
     https://nlp.stanford.edu/pubs/glove.pdf
     """
-    def __init__(self, path='data/glove.6B.50d.txt'):
+    def __init__(self, path='data/glove.6B.50d.txt', trainable=False, use_column_cache=True, gpu=True):
         word2idx, vectors = {}, []
 
         # Load vectors and build dictionary over word-index pairs
@@ -190,7 +196,14 @@ class GloveEmbedding(PretrainedEmbedding):
         
         # Convert to numpy
         vectors = np.asarray(vectors, dtype=np.float)
-        super(GloveEmbedding, self).__init__(num_embeddings=len(word2idx), embedding_dim=len(vectors[0]), word2idx=word2idx, vectors=vectors)
+        super(GloveEmbedding, self).__init__(num_embeddings=len(word2idx), 
+            embedding_dim=len(vectors[0]), 
+            word2idx=word2idx, 
+            vectors=vectors, 
+            trainable=trainable, 
+            use_column_cache=use_column_cache, 
+            gpu=gpu
+        )
 
 
 class LaserEmbedding(PretrainedEmbedding):

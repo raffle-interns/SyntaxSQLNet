@@ -15,10 +15,6 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
     val_writer = SummaryWriter(log_dir=f'logs/{name}_val')
     optimizer = Adam(model.parameters(), lr=lr)
 
-    if model.gpu:
-        embedding.cuda()
-        model.cuda()
-
     best_loss = float('inf')    
 
     for epoch in tqdm(range(num_epochs)):
@@ -97,13 +93,13 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs',  default=50, type=int)
     parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--name_postfix',default='', type=str)
-    parser.add_argument('--use_gpu', default=True, type=bool)
+    parser.add_argument('--gpu', default=True, type=bool)
     parser.add_argument('--hidden_dim', default=100, type=int)
     parser.add_argument('--save', default=True, type=bool)
     parser.add_argument('--dropout', default=0.3, type=float)
     parser.add_argument('--embedding_dim',default=300, type=int)
-    parser.add_argument('--num_augmentation', default=10000, type=int)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='value')
+    parser.add_argument('--num_augmentation', default=0 , type=int)
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='agg')
     args = parser.parse_args()
 
     # Load training and validation sets
@@ -112,10 +108,10 @@ if __name__ == '__main__':
     spider_dev = SpiderDataset(data_path='data/dev.json', tables_path='/data/tables.json', exclude_keywords=[ '-', ' / ', ' + '])
 
     # Load pre-trained embeddings and dataset
-    emb = GloveEmbedding(path='data/'+f'glove.6B.{args.embedding_dim}d.txt')
+    emb = GloveEmbedding(path='data/'+f'glove.6B.{args.embedding_dim}d.txt', gpu=args.gpu)
 
     # Select appropriate model to train
-    model = model_list.models[args.model](N_word=args.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.use_gpu)
+    model = model_list.models[args.model](N_word=args.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.gpu)
 
     # Generate appropriate datasets
     func_name = 'generate_' + args.model + '_dataset'
