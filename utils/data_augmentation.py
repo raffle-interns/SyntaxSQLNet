@@ -114,19 +114,28 @@ class AugmentedSpiderDataset(SpiderDataset):
                 # Generate hash value
                 hashval = hash(table_names[table_idx] + column_name_original + str(count))
 
-                # Get secondary column names
-                j = (hashval + hash(col_idx)) % (len(self.tables[db_name]['column_names']) - 1) + 1
-                column_name_2 = self.tables[db_name]['column_names'][j][1]
-                column_name_original_2 = self.tables[db_name]['column_names_original'][j][1]
-
                 # Use 1/10 of all columns
                 if table_idx == -1 or hashval % 100 > 10: continue
 
                 # Iterate over entries in data augmentation file
                 for entry in data:
 
+                    # Get secondary column names
+                    j = (hashval + hash(col_idx + count)) % (len(self.tables[db_name]['column_names']) - 1) + 1
+                    column_name_2 = self.tables[db_name]['column_names'][j][1]
+                    column_name_original_2 = self.tables[db_name]['column_names_original'][j][1]
+
+                    # Generate values
+                    value_int = ((hashval + j) % 10) + col_idx
+                    value_int2 = ((hash(column_name_2) + j) % 10) + 1
+                    for _ in range(3):
+                        if hashval % 3 > 1: value_int *= 10
+                        if (hashval + j) % 5 > 2: value_int2 *= 10
+                    value_str = ['history','original','awarded','gene','approved','green','ivory','context','camp','qualified','peter','dependent','2012','parked','tent','paint','similar','persistent','couragous','twitch','dragon','court','green','purple','apple','samsung','fail','none','excellent','good','miss','mister','uncle','mother','eagle','great','fish','piano','fast','giant','jump','dive','doubt','match','disk','copy','calf','axis','soap','plot','coat','gap','hall','lost','cold','bet','fire','few','kit','stop']
+                    value_str = value_str[j % len(value_str)]
+
                     # Generate SQL query
-                    query = entry['query'].replace('{COLUMN}', column_name_original).replace('{COLUMN2}', column_name_original_2).replace('{TABLE}', table_names_original[table_idx])
+                    query = entry['query'].replace('{COLUMN}', column_name_original).replace('{COLUMN2}', column_name_original_2).replace('{TABLE}', table_names_original[table_idx]).replace('{VALUE_INT}', str(value_int)).replace('{VALUE_INT2}', str(value_int2)).replace('{VALUE_STR}', value_str)
 
                     # Use approx. 1/20 of all queries
                     if (hashval + hash(query) + hash(count)) % 200 > 10: continue
@@ -142,7 +151,7 @@ class AugmentedSpiderDataset(SpiderDataset):
                             if (hashval + hash(question) + count) % 20 > 10: continue
                             
                             # Generate question and add to sample list
-                            question = question.replace('{COLUMN}', column_name).replace('{COLUMN2}', column_name_2).replace('{TABLE}', table_names[table_idx])
+                            question = question.replace('{COLUMN}', column_name).replace('{COLUMN2}', column_name_2).replace('{TABLE}', table_names[table_idx]).replace('{VALUE_INT}', str(value_int)).replace('{VALUE_INT2}', str(value_int2)).replace('{VALUE_STR}', value_str)
                             sample = {'sql': sql, 'question': question, 'db': db, 'history': history}
                             self.samples += [sample]
                             count += 1
