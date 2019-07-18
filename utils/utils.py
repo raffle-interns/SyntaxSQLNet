@@ -100,7 +100,8 @@ def text2int (textnum, numwords={}):
     ordinal_words = {'first':1, 'second':2, 'third':3, 'fourth':4, 'fifth':5, 'sixth':6, 'seventh':7, 'eighth':8, 'ninth':9, 'tenth':10, 'twelfth':12}
     ordinal_endings = [('ieth', 'y')]
 
-    textnum = textnum.replace('-', ' ')
+    # TODO: this breaks joined words like right-handed. What was the purpose?
+    #textnum = textnum.replace('-', ' ')
 
     current = result = 0
     curstring = ""
