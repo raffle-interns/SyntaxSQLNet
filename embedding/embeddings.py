@@ -4,7 +4,6 @@ from torch.nn import Embedding, Module
 from nltk.tokenize import word_tokenize
 import os
 from something.datascience.transforms.embeddings.sentence_embeddings.laser.laser import LaserSentenceEmbeddings
-
 class PretrainedEmbedding(Module):
     """
     Wrapper for pretrained embeddings. 
@@ -18,7 +17,7 @@ class PretrainedEmbedding(Module):
         vectors (numpy array): Matrix with all the embedding vectors
         trainable (bool): 
     """
-    def __init__(self, num_embeddings, embedding_dim, word2idx, vectors, trainable=False, use_column_cache=True, gpu=True):
+    def __init__(self, num_embeddings, embedding_dim, word2idx, vectors, trainable=False, use_column_cache=True, gpu=True, use_embedding=True):
         super(PretrainedEmbedding, self).__init__()
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
@@ -27,13 +26,16 @@ class PretrainedEmbedding(Module):
         self.column_cache={}
         self.use_column_cache = use_column_cache
         self.gpu = gpu
-        self.embedding = Embedding(num_embeddings, embedding_dim, padding_idx=0)
-        self.embedding.weight.data.copy_(torch.from_numpy(vectors))
+        if use_embedding:
+            self.embedding = Embedding(num_embeddings, embedding_dim, padding_idx=0)
+            #self.embedding.weight.data.copy_(torch.from_numpy(vectors))
 
-        if not trainable:
-            self.embedding.weight.requires_grad = False
+            if not trainable:
+                self.embedding.weight.requires_grad = False
         if gpu:
             self.cuda()
+        self.device = torch.device("cuda" if self.gpu else "cpu")
+
     def forward(self, sentences, mean_sequence=False):
         """
         Args:
@@ -60,7 +62,7 @@ class PretrainedEmbedding(Module):
         max_len = max(lenghts)
 
         # Use 0 as padding token
-        indicies = torch.zeros(batch_size, max_len).long().to(self.embedding.weight.device)
+        indicies = torch.zeros(batch_size, max_len).long().to(self.device)
         
         # Convert tokens to indicies
         # TODO: chose more sensible unknown token instead of just using the first (".") token
@@ -72,7 +74,7 @@ class PretrainedEmbedding(Module):
         word_embeddings = self.embedding(indicies)
 
         if mean_sequence:
-            word_embeddings = torch.sum(word_embeddings,dim=1)/torch.tensor(lenghts).float().to(self.embedding.weight.device)
+            word_embeddings = torch.sum(word_embeddings,dim=1)/torch.tensor(lenghts).float().to(self.device)
 
         return word_embeddings, np.asarray(lenghts)
 
@@ -107,7 +109,7 @@ class PretrainedEmbedding(Module):
         max_len = max(lengths)
 
         # Create tensor to store the resulting embeddings in
-        embeddings = torch.zeros(batch_size, max_len, self.embedding_dim).to(self.embedding.weight.device)
+        embeddings = torch.zeros(batch_size, max_len, self.embedding_dim).to(self.device)
         for i,history in enumerate(histories):
 
             for j, token in enumerate(history):
@@ -140,7 +142,7 @@ class PretrainedEmbedding(Module):
         max_col_name_len = max([max(col_name_len) for col_name_len in col_name_lengths])
 
         # Embeddings will have shape (batch size, # of columns, # of words in col name, embedding dim)
-        embeddings = torch.zeros(batch_size, max_len, max_col_name_len, self.embedding_dim).to(self.embedding.weight.device)
+        embeddings = torch.zeros(batch_size, max_len, max_col_name_len, self.embedding_dim).to(self.device)
         col_name_lengths = np.zeros((batch_size, max_len))
 
         for i, db in enumerate(columns_joined):
@@ -199,7 +201,7 @@ class GloveEmbedding(PretrainedEmbedding):
         super(GloveEmbedding, self).__init__(num_embeddings=len(word2idx), 
             embedding_dim=len(vectors[0]), 
             word2idx=word2idx, 
-            vectors=vectors, 
+            vectors=vectors,
             trainable=trainable, 
             use_column_cache=use_column_cache, 
             gpu=gpu
@@ -213,11 +215,17 @@ class LaserEmbedding(PretrainedEmbedding):
     """
     #word2idx={}, vectors=np.ones((1,1024),
     def __init__(self):
-        super(LaserEmbedding, self).__init__(num_embeddings=1, embedding_dim=1024,word2idx={}, vectors=[] dtype=float)
+        super(LaserEmbedding, self).__init__(num_embeddings=1, 
+            embedding_dim=1024,
+            word2idx={}, 
+            vectors=[], 
+            trainable=False, 
+            use_column_cache=True, 
+            gpu=True, use_embedding=False)
         # Initialize the raffle.ai implementation of LASER
         self.embedder = LaserSentenceEmbeddings()
 
-    def forward(self, sentences, mean_sequence=True):
+    def forward(self, sentences, mean_sequence=False):
         """
         Args:
             sentences list[str] or str: list of sentences, or one sentence
@@ -231,7 +239,7 @@ class LaserEmbedding(PretrainedEmbedding):
 
         # Convert words to lowercase
         sentences = [str.lower(sentence) for sentence in sentences]
-
+        
         # Convert list of sentences to list of list of tokens
         # TODO: should we use shlex to split, to have words in quotes stay as one word? 
         #      maybe these would just be unkown words though
@@ -241,32 +249,42 @@ class LaserEmbedding(PretrainedEmbedding):
         lengths = [len(sentence) for sentence in sentences_words]
         max_len = max(lengths)
         
-        
-        word_embeddings=[]
-        
+        word_embeddings = []
+        if not isinstance(self.vectors, list):
+            self.vectors = list(self.vectors)
+            
         if mean_sequence:
             # Embed full sentence by taking mean over sequence of words
             for sentence in sentences:
                 word_embeddings.append(self.embedder(sentence, method="sentence", language='en'))
-        
+
         else:
-            # Otherwise embed words seperately (discouraged)
-            for sentence, length in zip(sentences_words,lengths):
-                sentences_to_matrix=[]
-                for word in sentence:
-                    if word not in word2idx:
-                        word2idx{word} = len(word2idx)
-                        vectors += [self.embedder(word, method="sentence", language='en')]
-                    sentences_to_matrix.append(self.embedder(word, method="sentence", language='en'))
-                while length<max_len:
-                    sentences_to_matrix.append(np.zeros((1,self.embedding_dim), dtype=float))
-                    length= length+1
-                word_embeddings.append(sentences_to_matrix)
-        
-        # Convert embeddings and fix dimensions
-        word_embeddings = torch.tensor(word_embeddings).squeeze().unsqueeze(0)
-                
-        return word_embeddings, np.asarray(lengths)
+            # Convert tokens to indicies
+            for i, sentence in enumerate(sentences_words):
+                for j, word in enumerate(sentence):
+                    if word not in self.word2idx:
+                        self.word2idx[word] = len(self.word2idx)
+                        self.vectors.append(self.embedder(word, method="sentence", language='en'))
+            
+            #update vectors and number of embeddings
+            self.num_embeddings=len(self.word2idx)
+            
+            # retrieve needed vectors of each token for every sentences
+            for i, sentence in enumerate(sentences_words):
+                sentence_list=[]
+                for j, word in enumerate(sentence):
+                    sentence_list.append(self.vectors[self.word2idx.get(word,0)].reshape(-1))
+                length = 0
+                while lengths[i] + length< max_len:
+                    sentence_list.append(np.zeros((1,self.embedding_dim), dtype=float))
+                    length += 1
+                word_embeddings.append(sentence_list)
+
+        word_embeddings = torch.tensor(word_embeddings).squeeze()
+        if len(word_embeddings.shape)<3:
+            word_embeddings = word_embeddings.unsqueeze(0)
+
+        return  word_embeddings, np.asarray(lengths)
         
 
 if __name__ == "__main__":
@@ -275,6 +293,10 @@ if __name__ == "__main__":
 
         # Verify that sentence embedding works
         print(embedder(['test is a good thing'])[0].shape)
+        print(len(embedder.vectors))
 
+        print(embedder(['select col1 text db min', 'select col2 text db max'])[0].shape)
+        print(len(embedder.vectors))
         # Verify that history is embedded as expected
         print(embedder.get_history_emb([['select', 'col1 text db', 'min'],['select', 'col2 text db max']])[0].shape)
+        print(len(embedder.vectors))
