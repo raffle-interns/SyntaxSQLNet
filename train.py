@@ -103,7 +103,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Load training and validation sets
-    
     spider_train = AugmentedSpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', aug_data_path='/data/train_augment.json', aug_tables_path='/data/wikisql_tables.json', exclude_keywords=[ '-', ' / ', ' + '], max_count=args.num_augmentation)
     #spider_train = SpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', exclude_keywords=[ '-', ' / ', ' + '])
     spider_dev = SpiderDataset(data_path='data/dev.json', tables_path='/data/tables.json', exclude_keywords=[ '-', ' / ', ' + '])

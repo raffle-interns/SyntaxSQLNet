@@ -17,8 +17,7 @@ class SyntaxSQL():
     Main class for the SyntaxSQL model. 
     This takes all the sub modules, and uses them to run a question through the syntax tree
     """
-    def __init__(self, embeddings, N_word, hidden_dim, num_layers, gpu):
-        
+    def __init__(self, embeddings, N_word, hidden_dim, num_layers, gpu, num_augmentation=0):
         self.embeddings = embeddings
         self.having_predictor = HavingPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
         self.keyword_predictor = KeyWordPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
@@ -31,17 +30,21 @@ class SyntaxSQL():
         self.distinct_predictor = DistinctPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
         self.value_predictor = ValuePredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
         
+        def get_model_path(model='having', epoch=50):
+            return f'saved_models/{model}__num_layers={num_layers}__lr=0.001__dropout=0.3__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch={epoch}__num_augmentation={num_augmentation}__.pt'
+
         try:
-            self.having_predictor.load(f'saved_models/having__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
-            self.keyword_predictor.load(f'saved_models/keyword__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
-            self.andor_predictor.load(f'saved_models/andor__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
-            self.desasc_predictor.load(f'saved_models/desasc__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
-            self.op_predictor.load(f'saved_models/op__num_layers={num_layers}__lr=0.001__dropout=0.3__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__diffdata10k.pt')
-            self.col_predictor.load(f'saved_models/column__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
-            self.distinct_predictor.load(f'saved_models/distinct__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')
-            self.agg_predictor.load(f'saved_models/agg__num_layers={num_layers}__lr=0.001__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')    
-            self.limit_value_predictor.load(f'saved_models/limitvalue__num_layers={num_layers}__lr=0.001__dropout=0.3__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__aug10k.pt')
-            self.value_predictor.load(f'saved_models/value__num_layers={num_layers}__lr=0.001__dropout=0.3__batch_size=64__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch=100__.pt')
+            self.having_predictor.load(get_model_path('having'))    
+            self.keyword_predictor.load(get_model_path('keyword'))    
+            self.andor_predictor.load(get_model_path('andor'))    
+            self.desasc_predictor.load(get_model_path('desasc'))    
+            self.op_predictor.load(get_model_path('op'))
+            self.col_predictor.load(get_model_path('column', epoch=150))    
+            self.distinct_predictor.load(get_model_path('distinct'))
+            self.agg_predictor.load(get_model_path('agg'))    
+            self.limit_value_predictor.load(get_model_path('limitvalue'))
+            self.value_predictor.load(get_model_path('value'))
+
         except FileNotFoundError as ex:
             print(ex)
 
