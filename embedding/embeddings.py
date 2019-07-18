@@ -185,11 +185,17 @@ class GloveEmbedding(PretrainedEmbedding):
 
         # Load vectors and build dictionary over word-index pairs
         with open(path,'r', encoding ="utf8") as f:
-            for idx, line in enumerate(f,1):
-                line = line.split()     
-                word2idx[line[0]] = idx
-                vectors += [np.asarray(line[1:],dtype=np.float)]
-            
+            for idx, linee in enumerate(f):
+                line = linee.split()    
+                
+                token = line[0]
+                vector = line[1:]
+                
+                if len(vector)==300 and token not in word2idx: 
+                    
+                    word2idx[token] = idx
+                    vectors += [np.asarray(vector,dtype=np.float)]
+                
             # Insert zero-embedding for unknown tokens at first index
             word2idx['<unknown>'] = 0
             vectors.insert(0, np.zeros(len(vectors[0])))
