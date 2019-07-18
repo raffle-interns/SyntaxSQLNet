@@ -583,17 +583,10 @@ class Condition():
         if not isinstance(other, Condition):
             return NotImplemented
         
-        return (
-            self.column_select==other.column_select and 
-            self.op==other.op and 
-            self.cond_op==other.cond_op and
-            self.value == other.value
-            )
-        #return str(self) == str(other)
+        return str(self) == str(other)
 
     def __hash__(self):
-        return hash( (self.column_select, self.op, self.cond_op) )
-        #return hash(str(self))
+        return hash(str(self))
 
 #####################
 # Meta data classes #
