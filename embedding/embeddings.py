@@ -200,7 +200,7 @@ class LaserEmbedding(PretrainedEmbedding):
     """
     #word2idx={}, vectors=np.ones((1,1024),
     def __init__(self):
-        super(LaserEmbedding, self).__init__(num_embeddings=1, embedding_dim=1024,word2idx={},, vectors=[] dtype=float)
+        super(LaserEmbedding, self).__init__(num_embeddings=1, embedding_dim=1024,word2idx={}, vectors=[] dtype=float)
         # Initialize the raffle.ai implementation of LASER
         self.embedder = LaserSentenceEmbeddings()
 
