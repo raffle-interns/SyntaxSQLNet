@@ -133,7 +133,7 @@ class PretrainedEmbedding(Module):
         # Join the column tokens to align the way we split them        
         columns_joined = [[' '.join(column) for column in columns_batch] for columns_batch in columns]
         # Get the number of tokens in each column
-        col_name_lengths = [[len(word_tokenize(column.replace('(', '').strip(')'))) for column in columns_batch] for columns_batch in columns_joined]
+        col_name_lengths = [[len(word_tokenize(column)) for column in columns_batch] for columns_batch in columns_joined]
         # Get the maximum number of tokens for all columns
         max_col_name_len = max([max(col_name_len) for col_name_len in col_name_lengths])
 
@@ -198,10 +198,12 @@ class LaserEmbedding(PretrainedEmbedding):
     Wrapper for pretrained LASER embeddings provided by raffle.ai.
     https://arxiv.org/abs/1812.10464
     """
+    #word2idx={}, vectors=np.ones((1,1024),
     def __init__(self):
-        super(LaserEmbedding, self).__init__(num_embeddings=1, embedding_dim=1024, word2idx={}, vectors=np.ones((1,1024), dtype=float))
+        super(LaserEmbedding, self).__init__(num_embeddings=1, embedding_dim=1024,word2idx={},, vectors=[] dtype=float)
         # Initialize the raffle.ai implementation of LASER
         self.embedder = LaserSentenceEmbeddings()
+
     def forward(self, sentences, mean_sequence=True):
         """
         Args:
@@ -220,7 +222,7 @@ class LaserEmbedding(PretrainedEmbedding):
         # Convert list of sentences to list of list of tokens
         # TODO: should we use shlex to split, to have words in quotes stay as one word? 
         #      maybe these would just be unkown words though
-        sentences_words = [word_tokenize(sentence.replace('(', '').strip(')')) for sentence in sentences]
+        sentences_words = [word_tokenize(sentence) for sentence in sentences]
 
         # Define sequence length as max length sentence in batch
         lengths = [len(sentence) for sentence in sentences_words]
@@ -239,6 +241,9 @@ class LaserEmbedding(PretrainedEmbedding):
             for sentence, length in zip(sentences_words,lengths):
                 sentences_to_matrix=[]
                 for word in sentence:
+                    if word not in word2idx:
+                        word2idx{word} = len(word2idx)
+                        vectors += [self.embedder(word, method="sentence", language='en')]
                     sentences_to_matrix.append(self.embedder(word, method="sentence", language='en'))
                 while length<max_len:
                     sentences_to_matrix.append(np.zeros((1,self.embedding_dim), dtype=float))
