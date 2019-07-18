@@ -133,7 +133,7 @@ class PretrainedEmbedding(Module):
         # Join the column tokens to align the way we split them        
         columns_joined = [[' '.join(column) for column in columns_batch] for columns_batch in columns]
         # Get the number of tokens in each column
-        col_name_lengths = [[len(word_tokenize(column)) for column in columns_batch] for columns_batch in columns_joined]
+        col_name_lengths = [[len(word_tokenize(column.replace('(', '').strip(')'))) for column in columns_batch] for columns_batch in columns_joined]
         # Get the maximum number of tokens for all columns
         max_col_name_len = max([max(col_name_len) for col_name_len in col_name_lengths])
 
