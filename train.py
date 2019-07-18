@@ -99,7 +99,7 @@ if __name__ == '__main__':
     parser.add_argument('--dropout', default=0.3, type=float)
     parser.add_argument('--embedding_dim',default=300, type=int)
     parser.add_argument('--num_augmentation', default=10000, type=int)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='having')
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='column')
     args = parser.parse_args()
 
     # Models with 100% validation accuracy:
