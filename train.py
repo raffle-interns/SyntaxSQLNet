@@ -103,6 +103,9 @@ if __name__ == '__main__':
     parser.add_argument('--model', choices=list(model_list.models.keys()), default='column')
     args = parser.parse_args()
 
+    # Models with 100% validation accuracy:
+    # andor, having
+
     # Load training and validation sets
     spider_train = AugmentedSpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', aug_data_path='/data/train_augment.json', aug_tables_path='/data/wikisql_tables.json', exclude_keywords=[ '-', ' / ', ' + '], max_count=args.num_augmentation)
     #spider_train = SpiderDataset(data_path='data/train.json', tables_path='/data/tables.json', exclude_keywords=[ '-', ' / ', ' + '])
