@@ -114,16 +114,20 @@ class AugmentedSpiderDataset(SpiderDataset):
                 # Generate hash value
                 hashval = hash(table_names[table_idx] + column_name_original + str(count))
 
-                # Use 1/10 of all columns
-                if table_idx == -1 or hashval % 100 > 10: continue
+                # Use 1/8 of all columns
+                if table_idx == -1 or hashval % 80 > 10: continue
 
                 # Iterate over entries in data augmentation file
                 for entry in data:
 
-                    # Get secondary column names
-                    j = (hashval + hash(col_idx + count)) % (len(self.tables[db_name]['column_names']) - 1) + 1
+                    # Get secondary and tertiary column names
+                    num_columns = len(self.tables[db_name]['column_names']) - 1
+                    j = (hashval + hash(col_idx + count)) % num_columns + 1
                     column_name_2 = self.tables[db_name]['column_names'][j][1]
                     column_name_original_2 = self.tables[db_name]['column_names_original'][j][1]
+                    k = (j + hash(column_name_original) + count) % num_columns + 1
+                    column_name_3 = self.tables[db_name]['column_names'][k][1]
+                    column_name_original_3 = self.tables[db_name]['column_names_original'][k][1]
 
                     # Generate values
                     value_int = ((hashval + j) % 10) + col_idx
@@ -135,10 +139,10 @@ class AugmentedSpiderDataset(SpiderDataset):
                     value_str = value_str[j % len(value_str)]
 
                     # Generate SQL query
-                    query = entry['query'].replace('{COLUMN}', column_name_original).replace('{COLUMN2}', column_name_original_2).replace('{TABLE}', table_names_original[table_idx]).replace('{VALUE_INT}', str(value_int)).replace('{VALUE_INT2}', str(value_int2)).replace('{VALUE_STR}', value_str)
+                    query = entry['query'].replace('{COLUMN}', column_name_original).replace('{COLUMN2}', column_name_original_2).replace('{COLUMN3}', column_name_original_3).replace('{TABLE}', table_names_original[table_idx]).replace('{VALUE_INT}', str(value_int)).replace('{VALUE_INT2}', str(value_int2)).replace('{VALUE_STR}', value_str)
 
-                    # Use approx. 1/20 of all queries
-                    if (hashval + hash(query) + hash(count)) % 200 > 10: continue
+                    # Use approx. 1/15 of all queries
+                    if (hashval + hash(query) + hash(count)) % 150 > 10: continue
 
                     # Generate SQL statement and history
                     try:
@@ -147,11 +151,11 @@ class AugmentedSpiderDataset(SpiderDataset):
 
                         for question in entry['question']:
 
-                            # Use approx. 1/2 of all questions
-                            if (hashval + hash(question) + count) % 20 > 10: continue
+                            # Use approx. 2/3 of all questions
+                            if (hashval + hash(question) + count) % 3 > 1: continue
                             
                             # Generate question and add to sample list
-                            question = question.replace('{COLUMN}', column_name).replace('{COLUMN2}', column_name_2).replace('{TABLE}', table_names[table_idx]).replace('{VALUE_INT}', str(value_int)).replace('{VALUE_INT2}', str(value_int2)).replace('{VALUE_STR}', value_str)
+                            question = question.replace('{COLUMN}', column_name).replace('{COLUMN2}', column_name_2).replace('{COLUMN3}', column_name_3).replace('{TABLE}', table_names[table_idx]).replace('{VALUE_INT}', str(value_int)).replace('{VALUE_INT2}', str(value_int2)).replace('{VALUE_STR}', value_str)
                             sample = {'sql': sql, 'question': question, 'db': db, 'history': history}
                             self.samples += [sample]
                             count += 1
