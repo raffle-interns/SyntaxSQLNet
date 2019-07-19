@@ -99,7 +99,7 @@ if __name__ == '__main__':
     parser.add_argument('--dropout', default=0.3, type=float)
     parser.add_argument('--embedding_dim',default=300, type=int)
     parser.add_argument('--num_augmentation', default=0, type=int)
-    parser.add_argument('--N_word',default=840, type=int)
+    parser.add_argument('--N_word',default=6, type=int)
     parser.add_argument('--model', choices=list(model_list.models.keys()), default='column')
     args = parser.parse_args()
 
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     spider_dev = SpiderDataset(data_path='data/dev.json', tables_path='/data/tables.json', exclude_keywords=[ '-', ' / ', ' + '])
 
     # Load pre-trained embeddings and dataset
-    emb = GloveEmbedding(path='data/'+f'glove.{args.N_word}B.{args.embedding_dim}d.txt', gpu=args.gpu)
+    emb = GloveEmbedding(path='data/'+f'glove.{args.N_word}B.{args.embedding_dim}d.txt', gpu=args.gpu, embedding_dim=args.embedding_dim)
 
     # Select appropriate model to train
     model = model_list.models[args.model](N_word=args.embedding_dim, hidden_dim=args.hidden_dim, num_layers=args.num_layers, gpu=args.gpu)
