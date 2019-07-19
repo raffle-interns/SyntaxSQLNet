@@ -28,10 +28,11 @@ class PretrainedEmbedding(Module):
         self.gpu = gpu
         if use_embedding:
             self.embedding = Embedding(num_embeddings, embedding_dim, padding_idx=0)
-            #self.embedding.weight.data.copy_(torch.from_numpy(vectors))
+            self.embedding.weight.data.copy_(torch.from_numpy(vectors))
 
             if not trainable:
                 self.embedding.weight.requires_grad = False
+                
         if gpu:
             self.cuda()
         self.device = torch.device("cuda" if self.gpu else "cpu")
