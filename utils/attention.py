@@ -142,6 +142,9 @@ class ConditionalAttention(Module):
         elif condition_lengths is None:
             mask_var_cond = length_to_mask(variable_lengths).to(variable.device)
             mask_cond = None
+        elif variable_lengths is None:
+            mask_var_cond = length_to_mask(condition_lengths).permute(0,2,1).to(variable.device)
+            mask_cond = length_to_mask(condition_lengths).to(variable.device) # [batch_size, cond_seq_len, 1]
         else:
             mask_var_cond = length_to_mask(variable_lengths, condition_lengths).to(variable.device) # [batch_size, var_seq_len, cond_seq_len]
             mask_cond = length_to_mask(condition_lengths).to(variable.device) # [batch_size, cond_seq_len, 1]

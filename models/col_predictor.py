@@ -14,7 +14,7 @@ from models.base_predictor import BasePredictor
 
 class ColPredictor(BasePredictor):
     def __init__(self, max_num_cols=6, *args, **kwargs):
-        self.num = max_num_cols
+        self.max_num_cols = max_num_cols
         super(ColPredictor, self).__init__(*args, **kwargs)
 
     def construct(self, N_word, hidden_dim, num_layers, gpu, use_hs):  
@@ -32,16 +32,21 @@ class ColPredictor(BasePredictor):
                                 num_layers=num_layers, batch_first=True,
                                 dropout=0.3, bidirectional=True)
 
+        self.col_encoder = PackedLSTM(input_size=hidden_dim, hidden_size=hidden_dim, num_layers=2, return_hidden=True)
+        self.col_decoder = PackedLSTM(input_size=hidden_dim, hidden_size=hidden_dim, num_layers=2, return_hidden=True)
+        self.decoder_W = nn.Linear(in_features=hidden_dim, out_features=hidden_dim)
+
+
         # Number of columns
         self.q_col_num = ConditionalAttention(hidden_dim=hidden_dim, use_bag_of_word=True)
         self.hs_col_num = ConditionalAttention(hidden_dim=hidden_dim, use_bag_of_word=True)
-        self.col_num_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, self.num)) # num of cols: 1-6
+        self.col_num_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, self.max_num_cols)) # num of cols: 1-6
 
         # Columns
         self.q_col = ConditionalAttention(hidden_dim=hidden_dim, use_bag_of_word=False)
         self.hs_col = ConditionalAttention(hidden_dim=hidden_dim, use_bag_of_word=False)
         self.W_col = nn.Linear(in_features=hidden_dim, out_features=hidden_dim)
-        self.col_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, 1))
+        self.col_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, hidden_dim))
 
         pos_weight = torch.tensor(3).double()
         if gpu: pos_weight = pos_weight.cuda()
@@ -83,18 +88,37 @@ class ColPredictor(BasePredictor):
         # Predict columns #
         ###################
 
-        # Run conditional encoding for question|column, and history|column
+        # Run conditifonal encoding for question|column, and history|column
         H_q_col = self.q_col(q_enc, col_enc, q_len, col_len)  # [batch_size, num_cols_in_db, hidden_dim]
         H_hs_col = self.hs_col(hs_enc, col_enc, hs_len, col_len)  # [batch_size, num_cols_in_db, hidden_dim]
         H_col = self.W_col(col_enc)  # [batch_size, num_cols_in_db, hidden_dim]
 
-        cols = self.col_out(H_q_col + int(self.use_hs)*H_hs_col + H_col).squeeze(2)  # [batch_size, num_cols_in_db]
-        col_mask = length_to_mask(col_len).squeeze(2).to(cols.device)
+        cols = self.col_out(H_q_col + int(self.use_hs)*H_hs_col + H_col).squeeze(2)  # [batch_size, num_cols_in_db, hidden_dim]
 
+
+        col_encoding, _, col_hidden = self.col_encoder(cols, col_len)
+
+        num_cols_pred = torch.argmax(num_cols, dim=1) #[batch_size]
+
+
+        col_out = torch.zeros(batch_size, col_enc.size(1), self.max_num_cols).to(cols.device)
+        hidden = col_hidden # ([num_layers*directions, batch_size, hidden_dim],[num_layers*directions, batch_size, hidden_dim])
+        decoder_input = torch.zeros(batch_size, 1, self.hidden_dim).to(cols.device)
+        for i in range(self.max_num_cols):
+            decoder_input,_, hidden = self.col_decoder(decoder_input, hidden_input=hidden)
+            
+            decoder_seq = self.decoder_W(decoder_input).view(-1,self.hidden_dim,1)
+            col = torch.matmul(col_enc, decoder_seq).squeeze(2) 
+            col_out[:,:,i] = col
+
+
+        col_mask = length_to_mask(col_len).to(cols.device)
+        num_col_mask = length_to_mask(num_cols_pred.detach()+1, max_len=6).permute(0,2,1).to(cols.device)
         # Number of columns might be different for each db, so we need to mask some of them
-        cols = cols.masked_fill_(col_mask, self.col_pad_token)
+        col_out = col_out.masked_fill_(col_mask, self.col_pad_token)
+        col_out = col_out.masked_fill_(num_col_mask, self.col_pad_token)
 
-        return (num_cols, cols)
+        return (num_cols, col_out)
 
     def process_batch(self, batch, embedding):
         q_emb_var, q_len = embedding(batch['question'])
