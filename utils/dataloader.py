@@ -82,7 +82,7 @@ class SpiderDataset(Dataset):
                 sql = SQLStatement(query=example['query'], database=db)
                 # TODO: include other languages
                 # Replace ' with " to split the words correctly
-                question = re.sub(p, u"\"\g<1>\"", example['question'][language])#.replace('\'','"')
+                question = re.sub(p, u"\"\g<1>\"", example['question'][language])
                 
                 history = sql.generate_history()
 

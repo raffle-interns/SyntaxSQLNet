@@ -38,13 +38,20 @@ class SQLStatement():
         if not isinstance(other, SQLStatement):
             return NotImplemented
 
+        # The table names may or may not be set for the statemant yet.
+        if not self.TABLE :
+            self.TABLE = self.COLS[0].column.table_name
+        
+        if not other.TABLE :
+            other.TABLE = other.COLS[0].column.table_name
+            
         # The order might be different between two statements, so compare the clauses as sets
         return (set(self.COLS)==set(other.COLS) 
              and set(self.WHERE)==set(other.WHERE) 
              and set(self.GROUPBY)==set(other.GROUPBY)
              and set(self.ORDERBY)==set(other.ORDERBY)
              and set(self.ORDERBY_OP)==set(other.ORDERBY_OP)
-             #and self.TABLE == other.TABLE
+             and self.TABLE == other.TABLE
              and set(self.HAVING)==set(other.HAVING)
              and str(self.LIMIT_VALUE)==str(other.LIMIT_VALUE)
         )
