@@ -188,7 +188,7 @@ class GloveEmbedding(PretrainedEmbedding):
 
         # Load vectors and build dictionary over word-index pairs
         with open(path,'r', encoding ="utf8") as f:
-            for idx, linee in enumerate(f):
+            for idx, linee in enumerate(f,1):
                 line = linee.split()    
                 
                 token = line[0]
