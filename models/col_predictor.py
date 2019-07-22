@@ -12,6 +12,9 @@ from embedding.embeddings import GloveEmbedding
 from torch.utils.data import DataLoader
 from models.base_predictor import BasePredictor
 
+# TODO:
+# Multiset prediction
+
 class ColPredictor(BasePredictor):
     def __init__(self, max_num_cols=6, *args, **kwargs):
         self.num = max_num_cols
