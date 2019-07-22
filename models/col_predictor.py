@@ -50,7 +50,7 @@ class ColPredictor(BasePredictor):
         if gpu: pos_weight = pos_weight.cuda()
         self.bce_logit = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-    def forward(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, batch):
+    def forward(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, batch,embedding):
         """
         Args:
             q_emb_var [batch_size, question_seq_len, embedding_dim] : embedding of question
@@ -106,28 +106,27 @@ class ColPredictor(BasePredictor):
             # Number of columns might be different for each db, so we need to mask some of them
             return cols.masked_fill_(col_mask, self.col_pad_token)
 
-        def num_loss(prediction, batch):
-            return 0
+        #Can we use argmax on logits as well?
+        col_lengths = torch.argmax(num_cols, dim=1)+1
+        max_num_cols = torch.max(col_lengths)
+        loss = self.num_loss(num_cols, batch)
 
-        def col_loss(prediction, batch):
-            return 0
-
-        max_num_cols = torch.max(torch.argmax(num_cols, dim=1))
-        loss = num_loss(num_cols, batch)
-
-        for _ in range(max_num_cols):
-            prediction = predict_column()
-            loss += col_loss(prediction, batch)
+        for i in range(max_num_cols):
+            cols = predict_column()
+            loss += self.col_loss(cols, batch, i, col_lengths)            
             # add to context
-            
-
-            
-
-
-        # Compute loss...
-        self.loss_data = 0
+            hs_enc, hs_len = self.compute_context(embedding,batch,cols)
 
         return (num_cols, cols), loss
+
+    def compute_context(self,embedding, batch, cols):
+        col_idx = torch.argmax(cols,dim=1)
+        for i, idx in enumerate(col_idx):
+            batch['history'][i].append(' '.join(batch['columns_all'][i][idx]))
+        # go from number prediction to column text
+        hs_emb_var, hs_len = embedding.get_history_emb(batch['history'])
+        hs_enc,_ = self.hs_lstm(hs_emb_var, hs_len)  # [batch_size, history_seq_len, hidden_dim]
+        return hs_enc, hs_len
 
     def process_batch(self, batch, embedding):
         q_emb_var, q_len = embedding(batch['question'])
@@ -141,7 +140,7 @@ class ColPredictor(BasePredictor):
         col_emb_var = col_emb_var.reshape(batch_size*num_cols_in_db, col_name_lens, embedding_dim) 
         col_name_len = col_name_len.reshape(-1)
 
-        return self(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, batch)
+        return self(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, batch, embedding)
 
     def loss(self, prediction, batch):
         loss = 0
@@ -170,6 +169,55 @@ class ColPredictor(BasePredictor):
 
         # Add cross entropy loss over the number of keywords
         loss += self.cross_entropy(col_num_score, col_num_truth.squeeze(1))
+
+        # And binary cross entropy over the keywords predicted
+        loss += self.bce_logit(col_score[mask], col_truth[mask])
+
+        return loss
+    
+    def num_loss(self, col_num_score, batch):
+        loss = 0
+        col_num_truth = batch['num_columns']
+
+        # These are mainly if the data hasn't been batched and "tensorified" yet
+        if not isinstance(col_num_truth, torch.Tensor):
+            col_num_truth = torch.tensor(col_num_truth).reshape(-1)
+
+        if len(col_num_score.shape) < 2:
+            col_num_score = col_num_score.reshape(-1, col_num_score.size(0))
+
+        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        if col_num_score.dtype != torch.float64:
+            col_num_score = col_num_score.double()
+        col_num_truth = col_num_truth.to(col_num_score.device)-1
+
+        # Add cross entropy loss over the number of keywords
+        loss = self.cross_entropy(col_num_score, col_num_truth.squeeze(1))
+
+        return loss
+
+    def col_loss(self, col_score, batch, i, col_lengths):     
+        loss = 0
+        col_truth = batch['columns']
+
+        # These are mainly if the data hasn't been batched and "tensorified" yet
+        if not isinstance(col_truth, torch.Tensor):
+            col_truth = torch.tensor(col_truth).reshape(-1, 3)
+
+        if len(col_score.shape) < 2:
+            col_score = col_score.reshape(-1, col_score.size(0))
+
+        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        if col_score.dtype != torch.float64:
+            col_score = col_score.double()
+        col_truth = col_truth.to(col_score.device)
+
+        for  j in range(col_score.size(0)):
+                if col_lengths[j] <= i:
+                    col_score[j]*=0
+                    col_truth[j]=-0.5
+
+        mask = col_score != self.col_pad_token
 
         # And binary cross entropy over the keywords predicted
         loss += self.bce_logit(col_score[mask], col_truth[mask])

@@ -63,8 +63,12 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
         accuracy_val = []
         predictions_val = []
         for batch in iter(validation_dataloader):
-            with torch.no_grad():    
-                prediction = model.process_batch(batch, embedding)
+            with torch.no_grad():
+                if model.__class__.__name__ == 'ColPredictor':
+                    prediction, loss = model.process_batch(batch, embedding)
+                else:   
+                    prediction = model.process_batch(batch, embedding)
+                    loss = model.loss(prediction, batch)    
                 accuracy = model.accuracy(prediction, batch)
                 val_loss += [loss.detach().cpu().numpy()]
 
@@ -95,7 +99,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', default=2, type=int)
     parser.add_argument('--lr', default=1e-3, type=float)
     parser.add_argument('--num_epochs',  default=50, type=int)
-    parser.add_argument('--batch_size', default=2, type=int)
+    parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--name_postfix',default='', type=str)
     parser.add_argument('--gpu', default=True, type=bool)
     parser.add_argument('--hidden_dim', default=100, type=int)
