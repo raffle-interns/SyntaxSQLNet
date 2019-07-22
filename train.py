@@ -27,8 +27,12 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
 
             # Backpropagate and compute accuracy
             optimizer.zero_grad()
-            prediction = model.process_batch(batch, embedding)
-            loss = model.loss(prediction, batch)
+
+            if model.__class__.__name__ == 'ColPredictor':
+                prediction, loss = model.process_batch(batch, embedding)
+            else:   
+                prediction = model.process_batch(batch, embedding)
+                loss = model.loss(prediction, batch)
             loss.backward()
             accuracy = model.accuracy(prediction, batch)
             optimizer.step()
@@ -91,13 +95,13 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', default=2, type=int)
     parser.add_argument('--lr', default=1e-3, type=float)
     parser.add_argument('--num_epochs',  default=50, type=int)
-    parser.add_argument('--batch_size', default=64, type=int)
+    parser.add_argument('--batch_size', default=2, type=int)
     parser.add_argument('--name_postfix',default='', type=str)
     parser.add_argument('--gpu', default=True, type=bool)
     parser.add_argument('--hidden_dim', default=100, type=int)
     parser.add_argument('--save', default=True, type=bool)
     parser.add_argument('--dropout', default=0.3, type=float)
-    parser.add_argument('--embedding_dim',default=300, type=int)
+    parser.add_argument('--embedding_dim',default=50, type=int)
     parser.add_argument('--num_augmentation', default=0, type=int)
     parser.add_argument('--N_word',default=6, type=int)
     parser.add_argument('--model', choices=list(model_list.models.keys()), default='column')
