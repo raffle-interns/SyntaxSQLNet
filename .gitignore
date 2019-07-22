@@ -110,3 +110,4 @@ logs/*
 models/logs/*
 data/
 saved_models/
+cc.en.300.bin.gz
