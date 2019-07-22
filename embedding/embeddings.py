@@ -247,7 +247,10 @@ class GloveEmbedding(PretrainedEmbedding):
     Class responsible for GloVe embeddings.
     https://nlp.stanford.edu/pubs/glove.pdf
     """
-    def __init__(self, path='data/glove.6B.50d.txt', trainable=False, use_column_cache=True, gpu=True):
+    def __init__(self, path='data/glove.6B.50d.txt', trainable=False, use_column_cache=True, gpu=True, embedding_dim=50):
+        
+        
+        
         word2idx, vectors = {}, []
 
         # Load vectors and build dictionary over word-index pairs
@@ -258,7 +261,7 @@ class GloveEmbedding(PretrainedEmbedding):
                 token = line[0]
                 vector = line[1:]
                 
-                if len(vector)==300 and token not in word2idx: 
+                if len(vector)==embedding_dim and token not in word2idx: 
                     
                     word2idx[token] = idx
                     vectors += [np.asarray(vector,dtype=np.float)]
