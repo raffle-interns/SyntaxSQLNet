@@ -50,7 +50,7 @@ class ColPredictor(BasePredictor):
         if gpu: pos_weight = pos_weight.cuda()
         self.bce_logit = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-    def forward(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len):
+    def forward(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, batch):
         """
         Args:
             q_emb_var [batch_size, question_seq_len, embedding_dim] : embedding of question
@@ -145,6 +145,52 @@ class ColPredictor(BasePredictor):
         loss += self.bce_logit(col_score[mask], col_truth[mask])
 
         return loss
+    
+    def num_loss(self, col_num_score, batch):
+        loss = 0
+        col_num_truth = batch['num_columns']
+
+        # These are mainly if the data hasn't been batched and "tensorified" yet
+        if not isinstance(col_num_truth, torch.Tensor):
+            col_num_truth = torch.tensor(col_num_truth).reshape(-1)
+
+        if len(col_num_score.shape) < 2:
+            col_num_score = col_num_score.reshape(-1, col_num_score.size(0))
+
+        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        if col_num_score.dtype != torch.float64:
+            col_num_score = col_num_score.double()
+        col_num_truth = col_num_truth.to(col_num_score.device)-1
+
+        # Add cross entropy loss over the number of keywords
+        loss = self.cross_entropy(col_num_score, col_num_truth.squeeze(1))
+
+        return loss
+
+    def col_loss(self, col_score, batch):
+        loss = 0
+        col_truth = batch['columns']
+
+        # These are mainly if the data hasn't been batched and "tensorified" yet
+        if not isinstance(col_truth, torch.Tensor):
+            col_truth = torch.tensor(col_truth).reshape(-1, 3)
+
+        if len(col_score.shape) < 2:
+            col_score = col_score.reshape(-1, col_score.size(0))
+
+        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        if col_score.dtype != torch.float64:
+            col_score = col_score.double()
+        col_truth = col_truth.to(col_score.device)
+        
+        mask = col_score != self.col_pad_token
+
+        # And binary cross entropy over the keywords predicted
+        loss += self.bce_logit(col_score[mask], col_truth[mask])
+
+        return loss
+
+
 
     def accuracy(self, prediction, batch):
 
