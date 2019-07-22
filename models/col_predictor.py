@@ -212,10 +212,9 @@ class ColPredictor(BasePredictor):
             col_score = col_score.double()
         col_truth = col_truth.to(col_score.device)
 
-        for  j in range(col_score.size(0)):
-                if col_lengths[j] <= i:
-                    col_score[j]*=0
-                    col_truth[j]=-0.5
+        _idx=torch.le(col_lengths,i)
+        col_score[_idx]=0
+        col_truth[_idx]=(-0.5)
 
         mask = col_score != self.col_pad_token
 
