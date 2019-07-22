@@ -50,7 +50,7 @@ class ColPredictor(BasePredictor):
         if gpu: pos_weight = pos_weight.cuda()
         self.bce_logit = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-    def forward(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len):
+    def forward(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, batch):
         """
         Args:
             q_emb_var [batch_size, question_seq_len, embedding_dim] : embedding of question
@@ -79,25 +79,55 @@ class ColPredictor(BasePredictor):
         # Run conditional encoding for question|column, and history|column
         H_q_col = self.q_col_num(q_enc, col_enc, q_len, col_len)  # [batch_size, hidden_dim]
         H_hs_col = self.hs_col_num(hs_enc, col_enc, hs_len, col_len)  # [batch_size, hidden_dim]
-
         num_cols = self.col_num_out(H_q_col + int(self.use_hs)*H_hs_col)
 
         ###################
         # Predict columns #
         ###################
 
-        # Run conditional encoding for question|column, and history|column
-        H_q_col = self.q_col(q_enc, col_enc, q_len, col_len)  # [batch_size, num_cols_in_db, hidden_dim]
-        H_hs_col = self.hs_col(hs_enc, col_enc, hs_len, col_len)  # [batch_size, num_cols_in_db, hidden_dim]
-        H_col = self.W_col(col_enc)  # [batch_size, num_cols_in_db, hidden_dim]
+        # Compute context
+        # Num predict
+        # for nums
+        #   predict column
+        #   add to context
+        #   compute loss
+        #   mask batch
+        # backward
 
-        cols = self.col_out(H_q_col + int(self.use_hs)*H_hs_col + H_col).squeeze(2)  # [batch_size, num_cols_in_db]
-        col_mask = length_to_mask(col_len).squeeze(2).to(cols.device)
+        def predict_column():
+            # Run conditional encoding for question|column, and history|column
+            H_q_col = self.q_col(q_enc, col_enc, q_len, col_len)  # [batch_size, num_cols_in_db, hidden_dim]
+            H_hs_col = self.hs_col(hs_enc, col_enc, hs_len, col_len)  # [batch_size, num_cols_in_db, hidden_dim]
+            H_col = self.W_col(col_enc)  # [batch_size, num_cols_in_db, hidden_dim]
 
-        # Number of columns might be different for each db, so we need to mask some of them
-        cols = cols.masked_fill_(col_mask, self.col_pad_token)
+            cols = self.col_out(H_q_col + int(self.use_hs)*H_hs_col + H_col).squeeze(2)  # [batch_size, num_cols_in_db]
+            col_mask = length_to_mask(col_len).squeeze(2).to(cols.device)
 
-        return (num_cols, cols)
+            # Number of columns might be different for each db, so we need to mask some of them
+            return cols.masked_fill_(col_mask, self.col_pad_token)
+
+        def num_loss(prediction, batch):
+            return 0
+
+        def col_loss(prediction, batch):
+            return 0
+
+        max_num_cols = torch.max(torch.argmax(num_cols, dim=1))
+        loss = num_loss(num_cols, batch)
+
+        for _ in range(max_num_cols):
+            prediction = predict_column()
+            loss += col_loss(prediction, batch)
+            # add to context
+            
+
+            
+
+
+        # Compute loss...
+        self.loss_data = 0
+
+        return (num_cols, cols), loss
 
     def process_batch(self, batch, embedding):
         q_emb_var, q_len = embedding(batch['question'])
@@ -111,7 +141,7 @@ class ColPredictor(BasePredictor):
         col_emb_var = col_emb_var.reshape(batch_size*num_cols_in_db, col_name_lens, embedding_dim) 
         col_name_len = col_name_len.reshape(-1)
 
-        return self(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len )
+        return self(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, batch)
 
     def loss(self, prediction, batch):
         loss = 0
