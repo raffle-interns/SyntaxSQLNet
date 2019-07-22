@@ -55,6 +55,7 @@ class SQLStatement():
              and set(self.HAVING)==set(other.HAVING)
              and str(self.LIMIT_VALUE)==str(other.LIMIT_VALUE)
         )
+
     def component_match(self, other):
         return ( 
             set(self.COLS)==set(other.COLS),
@@ -541,6 +542,7 @@ class ColumnSelect():
 
     def __hash__(self):
         return hash(str(self))
+
 class Condition():
     column_select = None
     op = ""
@@ -656,6 +658,7 @@ class DataBase():
     def get_idx_from_column(self, column):
         columns = self.to_list()
         return columns.index(column.to_list())
+        
 class Table():
 
     def __init__(self, table_name, column_names, column_types):
