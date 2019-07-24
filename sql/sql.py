@@ -2,7 +2,7 @@ import re
 from itertools import zip_longest
 import shlex
 
-SQL_OPS = ['=','>','<','>=','<=','!=','NOT LIKE','LIKE']
+SQL_OPS = ['=','>','<','>=','<=','!=','NOT LIKE','LIKE','BETWEEN']
 SQL_AGG = ['max','min','count','sum','avg','']
 SQL_COND_OPS = ['AND','OR','']
 SQL_ORDERBY_OPS = ['DESC LIMIT','ASC LIMIT','DESC','ASC','LIMIT','']
@@ -13,7 +13,7 @@ SQL_KEYWORDS = ['where','group by','order by']
 # ...Maybe not since nltk splits "!=" to "!","=" and the asc, desc exists in the glove embeddings. Maybe they aren't as good as the true word?
 SQL_AGG_dict = {'max':'maximum', 'min':'minimum', 'count':'count','sum':'sum', 'avg':'average'}
 SQL_ORDERBY_OPS_dict = {'DESC LIMIT':'descending limit', 'ASC LIMIT':'ascending limit', 'DESC':'descending', 'ASC':'ascending', 'LIMIT':'limit', 'NONE': 'none'}
-SQL_OPS_dict = {'=':'=','>':'>','<':'<','>=':'> =','<=':'< =','!=':'! =','NOT LIKE':'not like','LIKE':'like'}
+SQL_OPS_dict = {'=':'=','>':'>','<':'<','>=':'> =','<=':'< =','!=':'! =','NOT LIKE':'not like','LIKE':'like','BETWEEN':'between'}
 
 class SQLStatement():
     """
@@ -55,6 +55,7 @@ class SQLStatement():
              and set(self.HAVING)==set(other.HAVING)
              and str(self.LIMIT_VALUE)==str(other.LIMIT_VALUE)
         )
+
     def component_match(self, other):
         return ( 
             set(self.COLS)==set(other.COLS),
@@ -110,6 +111,7 @@ class SQLStatement():
         clauses = [clause for clause in clauses if clause in query]
 
         # Split query into different clauses
+
         query_split = re.split(f'({"|".join(clauses)})',query)[1:]
 
 
@@ -149,10 +151,10 @@ class SQLStatement():
                     col = statement.split(' BETWEEN ')
                     intervals = col[1].split(' AND ')
                     col = col[0].strip(' ')
-                    statement = col + ' >= ' + intervals[0] + ' AND ' + col + ' < ' + intervals[1]
+                    statement = col + ' BETWEEN ' + intervals[0] +  ' ' + intervals[1]
 
                 # Find any AND/OR operators
-                conditional_ops = re.findall('( AND | OR )',statement)
+                conditional_ops = re.findall('( AND | OR | BETWEEN )',statement)
 
                 # Split statements into individual statements
                 conditions = re.split(' AND | OR ',statement)
@@ -161,16 +163,23 @@ class SQLStatement():
                 for condition, conditional_op in zip_longest(conditions, conditional_ops, fillvalue=""):
                     # shlex doesn't split substrings in quotes, e.g 
                     # 'book = "long title with multiple words"' -> ['book','=','long title with multiple words']
-                    column, op, value = re.findall(r'(.*\(.*?\)|\'.*?\'|".*?"|NOT LIKE|\S+)',condition)             
+                    
+                    if conditional_op == ' BETWEEN ':
+                        column, op, value, valueless = condition.split(' ')
+                        conditional_op = ''
+                    else:
+                        column, op, value = re.findall(r'(.*\(.*?\)|\'.*?\'|".*?"|NOT LIKE|\S+)',condition)
+                        valueless = ""             
                     
                     # Remove ",' and %, since this will be added when we generate the string of the sql
                     # getting the case of the string correct is almost impossible, so just assume that
                     # the lower case version is enough
                     value = str.lower(value.strip('\'"%'))
+                    valueless = str.lower(valueless.strip('\'"%'))
                     column = str.lower(column).strip()
                     conditional_op = conditional_op.strip()
                     column = self.database.get_column(column, self.TABLE)
-                    self.WHERE.append(Condition(column, op, value, conditional_op))
+                    self.WHERE.append(Condition(column, op, value, conditional_op,"","",valueless))
 
             elif clause == 'GROUP BY':
                 for column in statement.split(','):
@@ -187,16 +196,21 @@ class SQLStatement():
                     col = statement.split(' BETWEEN ')
                     intervals = col[1].split(' AND ')
                     col = col[0].strip(' ')
-                    statement = col + ' >= ' + intervals[0] + ' AND ' + col + ' < ' + intervals[1]
+                    statement = col + ' BETWEEN ' + intervals[0] +  ' ' + intervals[1]
 
-                #Find any AND/OR operators
-                conditional_ops = re.findall('( AND | OR )',statement)
-                #Split statements into individual statements
+                # Find any AND/OR operators
+                conditional_ops = re.findall('( AND | OR | BETWEEN )',statement)
+
                 conditions = re.split(' AND | OR ',statement)
                 #Combine the statement and AND/OR
                 for condition, conditional_op in zip_longest(conditions, conditional_ops, fillvalue=""):
-
-                    column, op, value = re.findall(r'(.*\(.*?\)|\'.*?\'|".*?"|NOT LIKE|\S+)',condition)
+                   
+                    if conditional_op == ' BETWEEN ':
+                        column, op, value, valueless = condition.split(' ')
+                        conditional_op = ''
+                    else:
+                        column, op, value = re.findall(r'(.*\(.*?\)|\'.*?\'|".*?"|NOT LIKE|\S+)',condition)
+                        valueless=""
 
                     agg, distinct = '', ''
                     column = str.lower(column)
@@ -212,9 +226,10 @@ class SQLStatement():
                     # getting the case of the string correct is almost impossible, so just assume that
                     # the lower case version is enough
                     value = str.lower(value.strip('\'"%'))
+                    valueless = str.lower(valueless.strip('\'"%'))
                     conditional_op = conditional_op.strip()
                     column = self.database.get_column(column, self.TABLE)
-                    self.HAVING.append(Condition(column, op, value, conditional_op, agg, distinct))
+                    self.HAVING.append(Condition(column, op, value, conditional_op, agg, distinct,valueless))
 
             elif clause == 'ORDER BY':
 
@@ -541,6 +556,7 @@ class ColumnSelect():
 
     def __hash__(self):
         return hash(str(self))
+
 class Condition():
     column_select = None
     op = ""
@@ -566,11 +582,12 @@ class Condition():
     def distinct(self, value):
         self.column_select.distinct = value
         
-    def __init__(self, column, op="", value="", cond_op="", agg="", distinct=""):
+    def __init__(self, column, op="", value="", cond_op="", agg="", distinct="",valueless=""):
         self.column_select = ColumnSelect(column, agg, distinct)
         self.op = op
         self.value = value
         self.cond_op = cond_op
+        self.valueless = valueless
 
     def __str__(self):
         assert self.op in SQL_OPS, f"{self.op} is not an SQL operation"
@@ -579,12 +596,17 @@ class Condition():
         if self.column.column_type == 'text':
             # Like statement assumes that the value is a substring, so add wildcards before and after
             # We also need to add quotes to text columns
-            if "LIKE" in self.op:
+            if "BETWEEN" in self.op:
+                return f'{self.column_select} {self.op} "%{self.value}%" {SQL_COND_OPS[0]} {self.valueless}'
+            elif "LIKE" in self.op:
                 return f'{self.column_select} {self.op} "%{self.value}%" {self.cond_op}'
             else:
                 return f'{self.column_select} {self.op} "{self.value}" {self.cond_op}'
-        # the value here should just be a number, so no quotes needed        
-        return f"{self.column_select} {self.op} {self.value} {self.cond_op}"
+        # the value here should just be a number, so no quotes needed
+        if "BETWEEN" in self.op:
+            return f"{self.column_select} {self.op} {self.value} {SQL_COND_OPS[0]} {self.valueless}"        
+        else:
+            return f"{self.column_select} {self.op} {self.value} {self.cond_op}"
     
     def __eq__(self, other):
         if not isinstance(other, Condition):
@@ -656,6 +678,7 @@ class DataBase():
     def get_idx_from_column(self, column):
         columns = self.to_list()
         return columns.index(column.to_list())
+        
 class Table():
 
     def __init__(self, table_name, column_names, column_types):
@@ -707,8 +730,5 @@ if __name__ == "__main__":
                 print("#######")
         except NotImplementedError:
             print(f"failed at {data[i]['query']}")
-        
-
-    
+            
     print(sql)
-
