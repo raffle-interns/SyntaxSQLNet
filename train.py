@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from utils.dataloader import SpiderDataset, try_tensor_collate_fn
 from utils.data_augmentation import AugmentedSpiderDataset
-from embedding.embeddings import GloveEmbedding
+from embedding.embeddings import GloveEmbedding#, FastTextEmbedding
 from models import model_list
 import argparse
 

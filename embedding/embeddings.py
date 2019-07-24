@@ -4,6 +4,8 @@ from torch.nn import Embedding, Module
 from nltk.tokenize import word_tokenize
 import os
 from something.datascience.transforms.embeddings.sentence_embeddings.laser.laser import LaserSentenceEmbeddings
+from something.datascience.transforms.embeddings.word_embeddings.fasttext.fasttext import FastTextWrapper, FasttextTransform
+
 class PretrainedEmbedding(Module):
     """
     Wrapper for pretrained embeddings. 
@@ -178,6 +180,68 @@ class PretrainedEmbedding(Module):
         return embeddings, np.asarray(lengths),col_name_lengths
 
 
+class FastTextEmbedding(PretrainedEmbedding):
+    """
+    Class responsible for fastText embeddings.
+    https://arxiv.org/abs/1712.09405
+    """
+    def __init__(self, language='english', use_column_cache=True, gpu=True):
+
+        self.fast = FasttextTransform(language)
+
+
+
+        super(FastTextEmbedding, self).__init__(num_embeddings=None,
+            embedding_dim=300,
+            word2idx=None,
+            vectors = None,
+            trainable=False,
+            use_column_cache=use_column_cache,
+            gpu=gpu)
+
+
+#def load_fasttext(language):
+    """
+    Input:
+        fasttext_bin_path: str
+            Path to fastText binaries. Can be downloaded from:
+            https://fasttext.cc/docs/en/crawl-vectors.html
+    Output:
+        fasttext_bin: FastText._FastText
+            A fastText model object.
+    """
+#    fasttext_bin_path = require_static_file("fasttext/{}/{}.300.bin".format(language, language))
+#    return ft.load_model(fasttext_bin_path)
+
+
+""" class FasttextTransform:
+    def __init__(self, language):
+        self.fasttext = load_fasttext(language)
+
+    def __call__(self, text):
+        if isinstance(text, (list, tuple)):
+            lists = []
+            for seq in text:
+                lists.append(self.get_vectors(seq))
+            return lists
+        elif isinstance(text, (Atom, str)):
+            return self.get_vectors(text)
+        else:
+            raise ValueError("Wrong input, got {}, requires str or Atom".format(type(text)))
+
+    def get_vectors(self, instance):
+        if isinstance(instance, str):
+            text = instance
+        elif isinstance(instance, Atom):
+            text = instance.text
+        else:
+            raise ValueError("Invalid input, should be `str` or `Atom`")
+
+        return np.array([self.fasttext.get_word_vector(word) for word in word_tokenize(text)])
+
+    return ft.load_model(fasttext_bin_path)
+ """
+
 class GloveEmbedding(PretrainedEmbedding):
     """
     Class responsible for GloVe embeddings.
@@ -298,7 +362,7 @@ class LaserEmbedding(PretrainedEmbedding):
         
 
 if __name__ == "__main__":
-    for embedder in [LaserEmbedding()]:
+    for embedder in [FastTextEmbedding()]:
         print('\nTesting functionality of', embedder.__class__.__name__ + '...')
 
         # Verify that sentence embedding works
