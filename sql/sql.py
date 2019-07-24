@@ -290,7 +290,6 @@ class SQLStatement():
                         if 'distinct' in col:
                             distinct, col = col.split()
 
-                    #
                     elif column == 'distinct':
                         distinct = column
                         col = str.lower(next(columns))
@@ -436,9 +435,14 @@ class SQLStatement():
                 history_dict['op'] += [history.copy()]
                 history += [condition.op]
 
-                history_dict['value'] += [history.copy()]
-                if condition.value:
-                    history += [condition.value]
+                if condition.op == 'BETWEEN':
+                    if condition.value:
+                        history += [condition.value]
+                    history_dict['value'] += [history.copy()]
+                else:
+                    history_dict['value'] += [history.copy()]
+                    if condition.value:
+                        history += [condition.value]
 
                 history_dict['andor'] += [history.copy()]
                 if condition.cond_op:
