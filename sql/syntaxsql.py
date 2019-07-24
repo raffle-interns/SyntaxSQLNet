@@ -38,7 +38,7 @@ class SyntaxSQL():
             self.keyword_predictor.load(get_model_path('keyword'))
             self.andor_predictor.load(get_model_path('andor', batch_size=256, num_augmentation=0))
             self.desasc_predictor.load(get_model_path('desasc'))
-            self.op_predictor.load(get_model_path('op'))
+            #self.op_predictor.load(get_model_path('op'))
             self.col_predictor.load(get_model_path('column', epoch=150))
             self.distinct_predictor.load(get_model_path('distinct'))
             self.agg_predictor.load(get_model_path('agg', num_augmentation=0))
@@ -144,13 +144,16 @@ class SyntaxSQL():
         col_idx = self.sql.database.get_idx_from_column(column)
 
         op = self.op_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
-        op = SQL_OPS[int(op)]
+        op = SQL_OPS[int(op)].lower()
 
         # Pick the current clause from the current keyword
         if self.current_keyword == 'where':
             self.sql.WHERE[-1].op = op
         else:
             self.sql.HAVING[-1].op = op
+
+        return op
+
 
     def generate_distrinct(self, column):
         # get the history, from the current sql
@@ -188,10 +191,42 @@ class SyntaxSQL():
             self.sql.ORDERBY[-1].agg = agg
         elif self.current_keyword == 'having':
             self.sql.HAVING[-1].agg = agg
-    
+
+    def generate_between(self, column):
+        # Make two predictions
+        for i in range(2):
+        
+            # Get the history, from the current sql
+            history = self.sql.generate_history()
+            hs_emb_var, hs_len = self.embeddings.get_history_emb([history['value'][-1]])
+
+            num_tokens, start_index = self.value_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len)
+
+            num_tokens, start_index = int(num_tokens[0]), int(start_index[0])
+            tokens=word_tokenize(str.lower(self.question))
+
+            try:
+                value = ' '.join(tokens[start_index:start_index+num_tokens])
+                
+                if self.current_keyword == 'where':
+                    if i == 0:
+                        self.sql.WHERE[-1].value = value
+                    else:
+                        self.sql.WHERE[-1].valueless = valueless
+
+                elif self.current_keyword == 'having':
+                    if i == 0:
+                        self.sql.HAVING[-1].value = value
+                    else:
+                        self.sql.HAVING[-1].valueless = valueless
+
+            # The value might not exist in the question, so just ignore it
+            except:
+                pass
+
     def generate_value(self, column):
         
-        # get the history, from the current sql
+        # Get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb([history['value'][-1]])
 
@@ -207,19 +242,20 @@ class SyntaxSQL():
                 self.sql.WHERE[-1].value = value
             elif self.current_keyword == 'having':
                 self.sql.HAVING[-1].value = value
+
         # The value might not exist in the question, so just ignore it
         except:
             pass
 
     def generate_columns(self):
 
-        # get the history, from the current sql
+        # Get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb([history['col'][-1]])
         
         num_cols, cols = self.col_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len)
         
-        #predictions are returned as lists, but it only has one element
+        # Predictions are returned as lists, but it only has one element
         num_cols, cols = num_cols[0], cols[0]
 
         for i, col in enumerate(cols):
@@ -233,11 +269,15 @@ class SyntaxSQL():
                 else:
                     self.sql.HAVING += [Condition(column)]
 
-                #We need the value and comparison operation in where/having clauses
-                self.generate_op(column)
-                self.generate_value(column)
+                # We need the value and comparison operation in where/having clauses
+                op = self.generate_op(column)
+
+                if op == 'between':
+                    self.generate_between(column)
+                else:
+                    self.generate_value(column)
                 
-                #If we predict multiple columns in where or having, we need to also predict and/or
+                # If we predict multiple columns in where or having, we need to also predict and/or
                 if num_cols>1 and i<(num_cols-1):
                     self.generate_andor(column)
 

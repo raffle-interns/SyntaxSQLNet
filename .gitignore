@@ -111,3 +111,5 @@ models/logs/*
 data/
 saved_models/
 cc.en.300.bin.gz
+cc.en.300.bin
+super_private_folder/commands.txt

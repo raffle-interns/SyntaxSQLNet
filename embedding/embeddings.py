@@ -247,10 +247,8 @@ class GloveEmbedding(PretrainedEmbedding):
     Class responsible for GloVe embeddings.
     https://nlp.stanford.edu/pubs/glove.pdf
     """
-    def __init__(self, path='data/glove.6B.50d.txt', trainable=False, use_column_cache=True, gpu=True, embedding_dim=50):
-        
-        
-        
+    def __init__(self, path='data/glove.6B.300d.txt', trainable=False, use_column_cache=True, gpu=True, embedding_dim=300):
+              
         word2idx, vectors = {}, []
 
         # Load vectors and build dictionary over word-index pairs
@@ -362,7 +360,7 @@ class LaserEmbedding(PretrainedEmbedding):
         
 
 if __name__ == "__main__":
-    for embedder in [FastTextEmbedding()]:
+    for embedder in [GloveEmbedding()]:
         print('\nTesting functionality of', embedder.__class__.__name__ + '...')
 
         # Verify that sentence embedding works
