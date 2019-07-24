@@ -12,8 +12,6 @@ from embedding.embeddings import GloveEmbedding
 from torch.utils.data import DataLoader
 from models.base_predictor import BasePredictor
 import copy
-# TODO:
-# Multiset prediction
 
 class ColPredictor(BasePredictor):
     def __init__(self, max_num_cols=6, *args, **kwargs):
@@ -99,7 +97,6 @@ class ColPredictor(BasePredictor):
             H_q_col = self.q_col(q_enc, col_enc, q_len, col_len)  # [batch_size, num_cols_in_db, hidden_dim]
             H_hs_col = self.hs_col(hs_enc, col_enc, hs_len, col_len)  # [batch_size, num_cols_in_db, hidden_dim]
             H_col = self.W_col(col_enc)  # [batch_size, num_cols_in_db, hidden_dim]
-
             cols = self.col_out(H_q_col + int(self.use_hs)*H_hs_col + H_col).squeeze(2)  # [batch_size, num_cols_in_db]
             col_mask = length_to_mask(col_len).squeeze(2).to(cols.device)
 
@@ -110,10 +107,13 @@ class ColPredictor(BasePredictor):
         max_num_cols = torch.max(col_lengths)
         loss = self.num_loss(num_cols, batch)
         history_extend=copy.deepcopy(batch['history'])
+
+        # Predict columns sequentially for batch
         for i in range(max_num_cols):
             cols = predict_column()
-            loss += self.col_loss(cols, batch, i, col_lengths)            
-            # add to context
+            loss += self.col_loss(cols, batch, i, col_lengths)
+
+            # Add to context
             hs_enc, hs_len, history_extend = self.compute_context(embedding,batch,cols, history_extend)
 
         return (num_cols, cols), loss
@@ -122,7 +122,8 @@ class ColPredictor(BasePredictor):
         col_idx = torch.argmax(cols,dim=1)
         for i, idx in enumerate(col_idx):
             history_extend[i].append(' '.join(batch['columns_all'][i][idx]))
-        # go from number prediction to column text
+
+        # Go from number prediction to column text
         hs_emb_var, hs_len = embedding.get_history_emb(history_extend)
         hs_enc,_ = self.hs_lstm(hs_emb_var, hs_len)  # [batch_size, history_seq_len, hidden_dim]
         return hs_enc, hs_len, history_extend
@@ -135,7 +136,6 @@ class ColPredictor(BasePredictor):
         batch_size, num_cols_in_db, col_name_lens, embedding_dim = col_emb_var.shape
 
         # Combine batch_size and num_cols_in_db into the first dimension, since this is what out model expects
-        # TODO: does this actually work?
         col_emb_var = col_emb_var.reshape(batch_size*num_cols_in_db, col_name_lens, embedding_dim) 
         col_name_len = col_name_len.reshape(-1)
 
@@ -157,7 +157,7 @@ class ColPredictor(BasePredictor):
             col_num_score = col_num_score.reshape(-1, col_num_score.size(0))
             col_score = col_score.reshape(-1, col_score.size(0))
 
-        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        # LSTM doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
         if col_score.dtype != torch.float64:
             col_score = col_score.double()
             col_num_score = col_num_score.double()
@@ -185,7 +185,7 @@ class ColPredictor(BasePredictor):
         if len(col_num_score.shape) < 2:
             col_num_score = col_num_score.reshape(-1, col_num_score.size(0))
 
-        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        # LSTM doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
         if col_num_score.dtype != torch.float64:
             col_num_score = col_num_score.double()
         col_num_truth = col_num_truth.to(col_num_score.device)-1
@@ -206,7 +206,7 @@ class ColPredictor(BasePredictor):
         if len(col_score.shape) < 2:
             col_score = col_score.reshape(-1, col_score.size(0))
 
-        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        # LSTM doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
         if col_score.dtype != torch.float64:
             col_score = col_score.double()
         col_truth = col_truth.to(col_score.device)
@@ -231,6 +231,7 @@ class ColPredictor(BasePredictor):
         col_num_score, col_score = prediction
         col_num_truth, col_truth = batch['num_columns'], batch['columns']
         batch_size = len(col_truth)
+
         # These are mainly if the data hasn't been batched and "tensorified" yet
         if not isinstance(col_num_truth, torch.Tensor):
             col_num_truth = torch.tensor(col_num_truth).reshape(-1)
@@ -242,7 +243,7 @@ class ColPredictor(BasePredictor):
             col_num_score = col_num_score.reshape(-1, col_num_score.size(0))
             col_score = col_score.reshape(-1, col_score.size(0))
 
-        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        # LSTM doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
         if col_score.dtype != torch.float64:
             col_score = col_score.double()
             col_num_score = col_num_score.double()
@@ -267,7 +268,8 @@ class ColPredictor(BasePredictor):
 
     def predict(self, *args):
         output = self.forward(*args)
-        #Some models predict both the values and number of values
+
+        # Some models predict both the values and number of values
         if isinstance(output, tuple):
             numbers, values = output
             
@@ -283,5 +285,7 @@ class ColPredictor(BasePredictor):
                 if number>0:
                     predicted_values += [torch.argsort(-value)[:number].cpu().numpy()]
                 predicted_numbers += [number]
+                
             return (predicted_numbers, predicted_values)
+
         return torch.argmax(output, dim=1).detach().cpu().numpy()
