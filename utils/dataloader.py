@@ -78,8 +78,9 @@ class SpiderDataset(Dataset):
                 example = self.data[i]
                 db_id = example['db_id']
                 db = DataBase(self.tables[db_id])
-
+                
                 sql = SQLStatement(query=example['query'], database=db)
+                
                 # TODO: include other languages
                 # Replace ' with " to split the words correctly
                 question = re.sub(p, u"\"\g<1>\"", example['question'][language])
@@ -217,7 +218,7 @@ class SpiderDataset(Dataset):
         for sample in self.samples:
             
             db, sql, columns_all_splitted, columns_all, question = self.get_common_data(sample)
-            
+
             #In order to match with the history, just take the nonempty columns
             conditions = [group for group in chain(sql.WHERE, sql.HAVING) if group]
             for condition, history in zip(conditions, sample['history']['op']):

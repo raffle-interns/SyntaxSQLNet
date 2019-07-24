@@ -11,7 +11,7 @@ from utils.dataloader import SpiderDataset, try_tensor_collate_fn
 from embedding.embeddings import GloveEmbedding
 from torch.utils.data import DataLoader
 from models.base_predictor import BasePredictor
-
+import copy
 # TODO:
 # Multiset prediction
 
@@ -106,27 +106,26 @@ class ColPredictor(BasePredictor):
             # Number of columns might be different for each db, so we need to mask some of them
             return cols.masked_fill_(col_mask, self.col_pad_token)
 
-        #Can we use argmax on logits as well?
         col_lengths = torch.argmax(num_cols, dim=1)+1
         max_num_cols = torch.max(col_lengths)
         loss = self.num_loss(num_cols, batch)
-
+        history_extend=copy.deepcopy(batch['history'])
         for i in range(max_num_cols):
             cols = predict_column()
             loss += self.col_loss(cols, batch, i, col_lengths)            
             # add to context
-            hs_enc, hs_len = self.compute_context(embedding,batch,cols)
+            hs_enc, hs_len, history_extend = self.compute_context(embedding,batch,cols, history_extend)
 
         return (num_cols, cols), loss
 
-    def compute_context(self,embedding, batch, cols):
+    def compute_context(self,embedding, batch, cols, history_extend):
         col_idx = torch.argmax(cols,dim=1)
         for i, idx in enumerate(col_idx):
-            batch['history'][i].append(' '.join(batch['columns_all'][i][idx]))
+            history_extend[i].append(' '.join(batch['columns_all'][i][idx]))
         # go from number prediction to column text
-        hs_emb_var, hs_len = embedding.get_history_emb(batch['history'])
+        hs_emb_var, hs_len = embedding.get_history_emb(history_extend)
         hs_enc,_ = self.hs_lstm(hs_emb_var, hs_len)  # [batch_size, history_seq_len, hidden_dim]
-        return hs_enc, hs_len
+        return hs_enc, hs_len, history_extend
 
     def process_batch(self, batch, embedding):
         q_emb_var, q_len = embedding(batch['question'])
@@ -215,6 +214,10 @@ class ColPredictor(BasePredictor):
         _idx=torch.le(col_lengths,i)
         col_score[_idx]=0
         col_truth[_idx]=(-0.5)
+        #for  j in range(col_score.size(0)):
+        #        if col_lengths[j] <= i:
+        #            col_score[j]*=0
+        #            col_truth[j]=-0.5
 
         mask = col_score != self.col_pad_token
 

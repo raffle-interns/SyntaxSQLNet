@@ -10,12 +10,13 @@ from embedding.embeddings import GloveEmbedding#, FastTextEmbedding
 from models import model_list
 import argparse
 
-def train(model, train_dataloader, validation_dataloader, embedding, name="", num_epochs=1, lr=0.001, save=False):
+def train(model, train_dataloader, validation_dataloader, embedding, name="", num_epochs=1, lr=0.001, save=False, gpu=True):
+    device = torch.device("cuda:0" if gpu else "cpu")
     train_writer = SummaryWriter(log_dir=f'logs/{name}_train')
     val_writer = SummaryWriter(log_dir=f'logs/{name}_val')
     optimizer = Adam(model.parameters(), lr=lr)
 
-    best_loss = float('inf')    
+    best_loss = float('inf')
 
     for epoch in tqdm(range(num_epochs)):
         model.train()
@@ -24,7 +25,8 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
         accuracy_train = []
         predictions_train = []
         for _, batch in enumerate(train_dataloader):
-
+            batch['columns'] = batch['columns'].to(device)
+            batch['num_columns'] = batch['num_columns'].to(device)
             # Backpropagate and compute accuracy
             optimizer.zero_grad()
 
@@ -64,6 +66,8 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
         predictions_val = []
         for batch in iter(validation_dataloader):
             with torch.no_grad():
+                batch['columns'] = batch['columns'].to(device)
+                batch['num_columns'] = batch['num_columns'].to(device)
                 if model.__class__.__name__ == 'ColPredictor':
                     prediction, loss = model.process_batch(batch, embedding)
                 else:   
@@ -99,16 +103,16 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', default=2, type=int)
     parser.add_argument('--lr', default=1e-3, type=float)
     parser.add_argument('--num_epochs',  default=50, type=int)
-    parser.add_argument('--batch_size', default=64, type=int)
+    parser.add_argument('--batch_size', default=16, type=int)
     parser.add_argument('--name_postfix',default='', type=str)
     parser.add_argument('--gpu', default=True, type=bool)
     parser.add_argument('--hidden_dim', default=100, type=int)
     parser.add_argument('--save', default=True, type=bool)
     parser.add_argument('--dropout', default=0.3, type=float)
-    parser.add_argument('--embedding_dim',default=300, type=int)
-    parser.add_argument('--num_augmentation', default=30000, type=int)
+    parser.add_argument('--embedding_dim',default=50, type=int)
+    parser.add_argument('--num_augmentation', default=0, type=int)
     parser.add_argument('--N_word',default=6, type=int)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='limitvalue')
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='op')
     args = parser.parse_args()
 
     # Models with 100% validation accuracy:
@@ -130,12 +134,13 @@ if __name__ == '__main__':
     validation_set = getattr(spider_dev, func_name)()
 
     # Initialize data loaders
-    dl_train = DataLoader(train_set, batch_size=args.batch_size, collate_fn=try_tensor_collate_fn, shuffle=True)
-    dl_validation = DataLoader(validation_set, batch_size=args.batch_size, collate_fn=try_tensor_collate_fn, shuffle=True)
+    #torch.multiprocessing.set_start_method('spawn', force = True)
+    dl_train = DataLoader(train_set, batch_size=args.batch_size, collate_fn=try_tensor_collate_fn, shuffle=True)#, num_workers=8, pin_memory =True)
+    dl_validation = DataLoader(validation_set, batch_size=args.batch_size, collate_fn=try_tensor_collate_fn, shuffle=True)#, num_workers=8, pin_memory=True)
 
     # Train our model
     train(model, dl_train, dl_validation, emb, 
             name=f'{args.model}__num_layers={args.num_layers}__lr={args.lr}__dropout={args.dropout}__batch_size={args.batch_size}__N_word={args.N_word}__embedding_dim={args.embedding_dim}__hidden_dim={args.hidden_dim}__epoch={args.num_epochs}__num_augmentation={args.num_augmentation}__{args.name_postfix}', 
             num_epochs=args.num_epochs,
             lr=args.lr,
-            save=args.save)
+            save=args.save,gpu = args.gpu)
