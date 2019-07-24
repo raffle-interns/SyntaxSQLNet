@@ -144,7 +144,7 @@ class SyntaxSQL():
         col_idx = self.sql.database.get_idx_from_column(column)
 
         op = self.op_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
-        op = SQL_OPS[int(op)].lower()
+        op = SQL_OPS[int(op)]
 
         # Pick the current clause from the current keyword
         if self.current_keyword == 'where':
@@ -272,7 +272,7 @@ class SyntaxSQL():
                 # We need the value and comparison operation in where/having clauses
                 op = self.generate_op(column)
 
-                if op == 'between':
+                if op == 'BETWEEN':
                     self.generate_between(column)
                 else:
                     self.generate_value(column)
