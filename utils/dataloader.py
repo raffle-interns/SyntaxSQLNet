@@ -162,12 +162,13 @@ class SpiderDataset(Dataset):
             #In order to match with the history, just take the nonempty groups
             groups = [group for group in (sql.COLS, sql.WHERE, sql.GROUPBY, sql.HAVING, sql.ORDERBY) if group]
             for columns, history in zip(groups, sample['history']['col']):
-
+                
                 #Get the index of the target column, from the lists of all columns in the database
                 columns_idx = [columns_all.index(col.column.to_list()) for col in columns]
                 #Convert to onehot encoding
                 columns_onehot = np.zeros(len(columns_all))
-                columns_onehot[columns_idx] = 1
+                for i in columns_idx:
+                    columns_onehot[i]+= 1
                 num_columns = len(columns_idx)
 
                 dataset.append({'columns_all':columns_all_splitted, 'num_columns': [num_columns], 'columns': columns_onehot, 'question': question, 'history': history, 'db': db, 'sql': sql})

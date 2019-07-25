@@ -16,6 +16,7 @@ class ColPredictor(BasePredictor):
     def __init__(self, max_num_cols=6, *args, **kwargs):
         self.num = max_num_cols
         super(ColPredictor, self).__init__(*args, **kwargs)
+        #self.num_cols = ColumnNumberPredictor(num = self.num, *args, **kwargs)
 
     def construct(self, N_word, hidden_dim, num_layers, gpu, use_hs):
         self.col_pad_token =-10000
@@ -116,7 +117,51 @@ class ColPredictor(BasePredictor):
         col_emb_var = col_emb_var.reshape(batch_size*num_cols_in_db, col_name_lens, embedding_dim) 
         col_name_len = col_name_len.reshape(-1)
 
-        return self(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len )
+        return self(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len)
+
+    def num_loss(self, col_num_score, batch):
+        loss = 0
+        col_num_truth = batch['num_columns']
+
+        # These are mainly if the data hasn't been batched and "tensorified" yet
+        if not isinstance(col_num_truth, torch.Tensor):
+            col_num_truth = torch.tensor(col_num_truth).reshape(-1)
+
+        if len(col_num_score.shape) < 2:
+            col_num_score = col_num_score.reshape(-1, col_num_score.size(0))
+
+        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        if col_num_score.dtype != torch.float64:
+            col_num_score = col_num_score.double()
+        col_num_truth = col_num_truth.to(col_num_score.device)-1
+
+        # Add cross entropy loss over the number of keywords
+        loss = self.cross_entropy(col_num_score, col_num_truth.squeeze(1))
+
+        return loss
+
+    def col_loss(self, col_score, batch):
+        loss = 0
+        col_truth = batch['columns']
+
+        # These are mainly if the data hasn't been batched and "tensorified" yet
+        if not isinstance(col_truth, torch.Tensor):
+            col_truth = torch.tensor(col_truth).reshape(-1, 3)
+
+        if len(col_score.shape) < 2:
+            col_score = col_score.reshape(-1, col_score.size(0))
+
+        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        if col_score.dtype != torch.float64:
+            col_score = col_score.double()
+        col_truth = col_truth.to(col_score.device)
+        
+        mask = col_score != self.col_pad_token
+
+        # And binary cross entropy over the keywords predicted
+        loss += self.bce_logit(col_score[mask], col_truth[mask])
+
+        return loss
 
     def loss(self, prediction, batch):
         loss = 0
