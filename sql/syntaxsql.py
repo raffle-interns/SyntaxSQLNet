@@ -302,7 +302,6 @@ class SyntaxSQL():
     def GetSQL(self, question, database):
         self.sql = SQLStatement(query=None, database=database)
         self.question = question
-
         
         self.q_emb_var, self.q_len = self.embeddings(question)
 
