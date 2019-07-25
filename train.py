@@ -37,7 +37,7 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
             # Some models return two accuracies
             if isinstance(accuracy, tuple):
                 accuracy_num, accuracy = accuracy
-                _, prediction = prediction
+                _, _, prediction = prediction
                 accuracy_num_train += [accuracy_num]
 
             accuracy_train += [accuracy]
@@ -66,7 +66,7 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
 
                 if isinstance(accuracy, tuple):
                     accuracy_num, accuracy = accuracy
-                    _, prediction = prediction
+                    _, _, prediction = prediction
                     accuracy_num_val += [accuracy_num]
 
                 accuracy_val += [accuracy]
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_dim', default=100, type=int)
     parser.add_argument('--save', default=True, type=bool)
     parser.add_argument('--dropout', default=0.3, type=float)
-    parser.add_argument('--embedding_dim',default=300, type=int)
+    parser.add_argument('--embedding_dim',default=50, type=int)
     parser.add_argument('--num_augmentation', default=0, type=int)
     parser.add_argument('--N_word',default=6, type=int)
     parser.add_argument('--model', choices=list(model_list.models.keys()), default='column')
@@ -127,7 +127,7 @@ if __name__ == '__main__':
 
     # Train our model
     train(model, dl_train, dl_validation, emb, 
-            name=f'{args.model}__num_layers={args.num_layers}__lr={args.lr}__dropout={args.dropout}__batch_size={args.batch_size}__N_word={args.N_word}__embedding_dim={args.embedding_dim}__hidden_dim={args.hidden_dim}__epoch={args.num_epochs}__num_augmentation={args.num_augmentation}__{args.name_postfix}', 
+            name=f'{args.model}__num_layers={args.num_layers}__lr={args.lr}__dropout={args.dropout}__batch_size={args.batch_size}__embedding_dim={args.embedding_dim}__hidden_dim={args.hidden_dim}__epoch={args.num_epochs}__num_augmentation={args.num_augmentation}__{args.name_postfix}', 
             num_epochs=args.num_epochs,
             lr=args.lr,
             save=args.save)

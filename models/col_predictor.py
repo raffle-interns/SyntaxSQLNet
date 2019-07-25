@@ -17,7 +17,7 @@ class ColPredictor(BasePredictor):
         self.num = max_num_cols
         super(ColPredictor, self).__init__(*args, **kwargs)
 
-    def construct(self, N_word, hidden_dim, num_layers, gpu, use_hs):  
+    def construct(self, N_word, hidden_dim, num_layers, gpu, use_hs):
         self.col_pad_token =-10000
 
         self.q_lstm = PackedLSTM(input_size=N_word, hidden_size=hidden_dim//2,
@@ -36,6 +36,9 @@ class ColPredictor(BasePredictor):
         self.q_col_num = ConditionalAttention(hidden_dim=hidden_dim, use_bag_of_word=True)
         self.hs_col_num = ConditionalAttention(hidden_dim=hidden_dim, use_bag_of_word=True)
         self.col_num_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, self.num)) # num of cols: 1-6
+
+        # Number of column repeats
+        self.col_rep_out = nn.Sequential(nn.Tanh(), nn.Linear(hidden_dim, 3)) # num of repeats: 0-2
 
         # Columns
         self.q_col = ConditionalAttention(hidden_dim=hidden_dim, use_bag_of_word=False)
@@ -79,6 +82,12 @@ class ColPredictor(BasePredictor):
 
         num_cols = self.col_num_out(H_q_col + int(self.use_hs)*H_hs_col)
 
+        #############################
+        # Predict number of repeats #
+        #############################
+
+        num_reps = self.col_rep_out(H_q_col + int(self.use_hs)*H_hs_col)
+
         ###################
         # Predict columns #
         ###################
@@ -94,7 +103,7 @@ class ColPredictor(BasePredictor):
         # Number of columns might be different for each db, so we need to mask some of them
         cols = cols.masked_fill_(col_mask, self.col_pad_token)
 
-        return (num_cols, cols)
+        return num_cols, num_reps, cols
 
     def process_batch(self, batch, embedding):
         q_emb_var, q_len = embedding(batch['question'])
@@ -104,7 +113,6 @@ class ColPredictor(BasePredictor):
         batch_size, num_cols_in_db, col_name_lens, embedding_dim = col_emb_var.shape
 
         # Combine batch_size and num_cols_in_db into the first dimension, since this is what out model expects
-        # TODO: does this actually work?
         col_emb_var = col_emb_var.reshape(batch_size*num_cols_in_db, col_name_lens, embedding_dim) 
         col_name_len = col_name_len.reshape(-1)
 
@@ -112,8 +120,9 @@ class ColPredictor(BasePredictor):
 
     def loss(self, prediction, batch):
         loss = 0
-        col_num_score, col_score = prediction
+        col_num_score, col_rep_score, col_score = prediction
         col_num_truth, col_truth = batch['num_columns'], batch['columns']
+        col_rep_truth = torch.max(batch['columns'], dim=1)[0]-1
 
         # These are mainly if the data hasn't been batched and "tensorified" yet
         if not isinstance(col_num_truth, torch.Tensor):
@@ -126,17 +135,22 @@ class ColPredictor(BasePredictor):
             col_num_score = col_num_score.reshape(-1, col_num_score.size(0))
             col_score = col_score.reshape(-1, col_score.size(0))
 
-        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        # LSTM doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
         if col_score.dtype != torch.float64:
             col_score = col_score.double()
             col_num_score = col_num_score.double()
+            col_rep_score = col_rep_score.double()
         col_num_truth = col_num_truth.to(col_num_score.device)-1
+        col_rep_truth = col_rep_truth.to(col_rep_score.device).long()
         col_truth = col_truth.to(col_score.device)
 
         mask = col_score != self.col_pad_token
 
         # Add cross entropy loss over the number of keywords
         loss += self.cross_entropy(col_num_score, col_num_truth.squeeze(1))
+
+        # Add cross entropy loss over the number of repeats
+        loss += self.cross_entropy(col_rep_score, col_rep_truth)
 
         # And binary cross entropy over the keywords predicted
         loss += self.bce_logit(col_score[mask], col_truth[mask])
@@ -145,9 +159,11 @@ class ColPredictor(BasePredictor):
 
     def accuracy(self, prediction, batch):
 
-        col_num_score, col_score = prediction
-        col_num_truth, col_truth = batch['num_columns'], batch['columns']
+        col_num_score, col_rep_score, col_score = prediction
+        col_num_truth, col_truth = batch['num_columns'], batch['columns']  
+        col_rep_truth = torch.max(batch['columns'], dim=1)[0]-1
         batch_size = len(col_truth)
+
         # These are mainly if the data hasn't been batched and "tensorified" yet
         if not isinstance(col_num_truth, torch.Tensor):
             col_num_truth = torch.tensor(col_num_truth).reshape(-1)
@@ -159,24 +175,43 @@ class ColPredictor(BasePredictor):
             col_num_score = col_num_score.reshape(-1, col_num_score.size(0))
             col_score = col_score.reshape(-1, col_score.size(0))
 
-        # TODO: lstm doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
+        # LSTM doesn't support float64, but bce_logit only supports float64, so we have to convert back and forth
         if col_score.dtype != torch.float64:
             col_score = col_score.double()
             col_num_score = col_num_score.double()
+            col_rep_score = col_rep_score.double()
         col_num_truth = col_num_truth.to(col_num_score.device)
+        col_rep_truth = col_rep_truth.to(col_rep_score.device).long()
         col_truth = col_truth.to(col_score.device)
 
         # Predict the number of columns as the argmax of the scores
         kw_num_prediction = torch.argmax(col_num_score, dim=1)
         accuracy_num = (kw_num_prediction+1 == col_num_truth.squeeze(1)).sum().float()/batch_size
 
+        # Predict the number of repeats as the argmax of the scores
+        kw_rep_prediction = torch.argmax(col_rep_score, dim=1)
+        accuracy_rep = (kw_rep_prediction == col_rep_truth).sum().float()/batch_size
+
         correct_keywords = 0
         for i in range(batch_size):
-            num_kw = col_num_truth[i]
+            # Select columns
+            num_kw = int(col_num_truth[i])
+            num_rep = int(kw_num_prediction[i])
+            trgt = torch.argsort(-col_truth[i, :])[:num_kw].cpu().numpy()
+            pred = torch.argsort(-col_score[i, :])[:num_kw].cpu().numpy()
+
+            # Repeat the first column
+            if num_rep > 0:
+                reps = min(num_rep, num_kw)
+                try:
+                    pred = np.insert(pred, 0, np.ones(reps)*pred[0])[:-reps]
+                except:
+                    bp = 0
 
             # Compare the set of predicted keywords with target.
             # This should eliminate any ordering issues
-            correct_keywords += set(torch.argsort(-col_truth[i, :])[:num_kw].cpu().numpy()) == set(torch.argsort(-col_score[i, :])[:num_kw].cpu().numpy())
+            correct_keywords += set(pred) == set(trgt)
+
         accuracy_kw = correct_keywords/batch_size
 
         return accuracy_num.detach().cpu().numpy(), accuracy_kw
@@ -184,11 +219,13 @@ class ColPredictor(BasePredictor):
 
     def predict(self, *args):
         output = self.forward(*args)
-        #Some models predict both the values and number of values
+
+        # Some models predict both the values and number of values
         if isinstance(output, tuple):
-            numbers, values = output
+            numbers, reps, values = output
             
             numbers = torch.argmax(numbers, dim=1).detach().cpu().numpy() + 1
+            reps = torch.argmax(reps, dim=1).detach().cpu().numpy()
 
             predicted_values = []
             predicted_numbers = []
@@ -200,5 +237,7 @@ class ColPredictor(BasePredictor):
                 if number>0:
                     predicted_values += [torch.argsort(-value)[:number].cpu().numpy()]
                 predicted_numbers += [number]
+
             return (predicted_numbers, predicted_values)
+
         return torch.argmax(output, dim=1).detach().cpu().numpy()

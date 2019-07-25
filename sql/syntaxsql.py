@@ -38,7 +38,7 @@ class SyntaxSQL():
             self.keyword_predictor.load(get_model_path('keyword'))
             self.andor_predictor.load(get_model_path('andor', batch_size=256, num_augmentation=0))
             self.desasc_predictor.load(get_model_path('desasc'))
-            self.op_predictor.load(get_model_path('op'))
+            self.op_predictor.load(get_model_path('op', num_augmentation=10000))
             self.col_predictor.load(get_model_path('column', epoch=150))
             self.distinct_predictor.load(get_model_path('distinct'))
             self.agg_predictor.load(get_model_path('agg', num_augmentation=0))
