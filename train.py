@@ -21,6 +21,7 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
         model.train()
         train_loss = []
         accuracy_num_train = []
+        accuracy_rep_train = []
         accuracy_train = []
         predictions_train = []
         for _, batch in enumerate(train_dataloader):
@@ -36,8 +37,13 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
 
             # Some models return two accuracies
             if isinstance(accuracy, tuple):
-                accuracy_num, accuracy = accuracy
-                _, _, prediction = prediction
+                try:
+                    accuracy_num, accuracy_rep, accuracy = accuracy
+                    _, _, prediction = prediction
+                    accuracy_rep_train += [accuracy_rep]
+                except:
+                    accuracy_num, accuracy = accuracy
+                    _, prediction = prediction
                 accuracy_num_train += [accuracy_num]
 
             accuracy_train += [accuracy]
@@ -52,10 +58,13 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
 
         if len(accuracy_num_train)>0:
             train_writer.add_scalar('accuracy_num', np.mean(accuracy_num_train), epoch)
+        if len(accuracy_rep_train)>0:
+            train_writer.add_scalar('accuracy_rep', np.mean(accuracy_rep_train), epoch)
 
         model.eval()
         val_loss = []
         accuracy_num_val = []
+        accuracy_rep_val = []
         accuracy_val = []
         predictions_val = []
         for batch in iter(validation_dataloader):
@@ -65,8 +74,13 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
                 val_loss += [loss.detach().cpu().numpy()]
 
                 if isinstance(accuracy, tuple):
-                    accuracy_num, accuracy = accuracy
-                    _, _, prediction = prediction
+                    try:
+                        accuracy_num, accuracy_rep, accuracy = accuracy
+                        _, _, prediction = prediction
+                        accuracy_rep_val += [accuracy_rep]
+                    except:
+                        accuracy_num, accuracy = accuracy
+                        _, prediction = prediction
                     accuracy_num_val += [accuracy_num]
 
                 accuracy_val += [accuracy]
@@ -78,8 +92,10 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
         val_writer.add_scalar('loss', np.mean(val_loss), epoch)
         val_writer.add_scalar('accuracy', np.mean(accuracy_val), epoch)
         val_writer.add_histogram('predictions',np.asarray(predictions_val), epoch)
-        if len(accuracy_num_train)>0:
+        if len(accuracy_num_val)>0:
             val_writer.add_scalar('accuracy_num', np.mean(accuracy_num_val), epoch)
+        if len(accuracy_rep_val)>0:
+            val_writer.add_scalar('accuracy_rep', np.mean(accuracy_rep_val), epoch)
 
         if save and np.mean(val_loss)<best_loss:
             torch.save(model.state_dict(), f"saved_models/{name}.pt")
