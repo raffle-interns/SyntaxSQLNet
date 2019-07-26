@@ -30,8 +30,8 @@ class SyntaxSQL():
         self.distinct_predictor = DistinctPredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
         self.value_predictor = ValuePredictor(N_word=N_word, hidden_dim=hidden_dim, num_layers=num_layers, gpu=gpu).eval()
         
-        def get_model_path(model='having', batch_size=64, epoch=50, num_augmentation=num_augmentation):
-            return f'saved_models/{model}__num_layers={num_layers}__lr=0.001__dropout=0.3__batch_size={batch_size}__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch={epoch}__num_augmentation={num_augmentation}__.pt'
+        def get_model_path(model='having', batch_size=64, epoch=50, num_augmentation=num_augmentation, name_postfix=''):
+            return f'saved_models/{model}__num_layers={num_layers}__lr=0.001__dropout=0.3__batch_size={batch_size}__embedding_dim={N_word}__hidden_dim={hidden_dim}__epoch={epoch}__num_augmentation={num_augmentation}__{name_postfix}.pt'
 
         try:
             self.having_predictor.load(get_model_path('having'))
@@ -39,7 +39,7 @@ class SyntaxSQL():
             self.andor_predictor.load(get_model_path('andor', batch_size=256, num_augmentation=0))
             self.desasc_predictor.load(get_model_path('desasc'))
             self.op_predictor.load(get_model_path('op', num_augmentation=10000))
-            self.col_predictor.load(get_model_path('column', epoch=150))
+            self.col_predictor.load(get_model_path('column', epoch=150, num_augmentation=10000, name_postfix='repaug'))
             self.distinct_predictor.load(get_model_path('distinct'))
             self.agg_predictor.load(get_model_path('agg', num_augmentation=0))
             self.limit_value_predictor.load(get_model_path('limitvalue'))

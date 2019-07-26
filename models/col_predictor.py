@@ -177,7 +177,6 @@ class ColPredictor(BasePredictor):
 
         # And binary cross entropy over the keywords predicted
         loss += self.bce_logit(col_score[mask], col_truth[mask])
-        #loss += self.cosine_loss(col_score, col_truth, torch.ones(len(col_score)).double().to(col_score.device))
 
         return loss
 
@@ -186,6 +185,7 @@ class ColPredictor(BasePredictor):
         col_num_score, col_rep_score, col_score = prediction
         col_num_truth, col_truth = batch['num_columns'], batch['columns']
         col_rep_truth = torch.max(batch['columns'], dim=1)[0]-1
+        col_truth = (col_truth > 0).double()
         batch_size = len(col_truth)
 
         # These are mainly if the data hasn't been batched and "tensorified" yet
@@ -237,7 +237,7 @@ class ColPredictor(BasePredictor):
 
         accuracy_kw = correct_keywords/batch_size
 
-        return accuracy_num.detach().cpu().numpy(), accuracy_kw
+        return accuracy_num.detach().cpu().numpy(), accuracy_rep.detach().cpu().numpy(), accuracy_kw
 
     def predict(self, *args):
         output = self.forward(*args)
