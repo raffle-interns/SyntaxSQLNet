@@ -173,7 +173,7 @@ class SyntaxSQL():
         elif self.current_keyword == 'having':
             self.sql.HAVING[-1].distinct = distinct
 
-    def generate_agg(self, column, early_return = False):
+    def generate_agg(self, column, early_return = False, force_agg = False):
 
         # Get the history, from the current sql
         history = self.sql.generate_history()
@@ -181,7 +181,7 @@ class SyntaxSQL():
 
         col_idx = self.sql.database.get_idx_from_column(column)
 
-        agg = self.agg_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
+        agg = self.agg_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx, force_agg=force_agg)
 
         agg = SQL_AGG[int(agg)]
 
@@ -298,6 +298,7 @@ class SyntaxSQL():
                     self.generate_andor(column)
 
             if self.current_keyword in ('orderby','select','having'):
+                force_agg = False
                 if self.current_keyword == 'orderby':
                     self.sql.ORDERBY += [ColumnSelect(column)]
                     if column.column_name == '*' and self.generate_agg(column, early_return=True) == '':
@@ -305,10 +306,11 @@ class SyntaxSQL():
                         self.sql.ORDERBY[-1] = ColumnSelect(column)
 
                 elif self.current_keyword == 'select':
+                    force_agg = len(set(cols)) < len(cols)
                     self.sql.COLS += [ColumnSelect(column)] 
 
                 # Each column should have an aggregator
-                self.generate_agg(column)
+                self.generate_agg(column, force_agg=force_agg)
                 self.generate_distrinct(column)
 
             if self.current_keyword == 'groupby':

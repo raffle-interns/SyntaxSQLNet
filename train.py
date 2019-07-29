@@ -113,7 +113,7 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_dim', default=100, type=int)
     parser.add_argument('--save', default=True, type=bool)
     parser.add_argument('--dropout', default=0.3, type=float)
-    parser.add_argument('--embedding_dim',default=100, type=int)
+    parser.add_argument('--embedding_dim',default=300, type=int)
     parser.add_argument('--num_augmentation', default=10000, type=int)
     parser.add_argument('--N_word',default=6, type=int)
     parser.add_argument('--model', choices=list(model_list.models.keys()), default='value')

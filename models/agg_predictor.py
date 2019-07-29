@@ -7,6 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.lstm import PackedLSTM
 from utils.attention import ConditionalAttention
 from models.base_predictor import BasePredictor
+import math
 
 class AggPredictor(BasePredictor):
     def __init__(self, num=6, *args, **kwargs):
@@ -63,6 +64,32 @@ class AggPredictor(BasePredictor):
         H_cs = self.W_cs(col_emb).squeeze(1) # [batch_size, hidden_dim]
         
         return self.op_out(H_q_cs + int(self.use_hs)*H_hs_cs + H_cs) # [batch_size, self.num]
+
+    def predict(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, col_idx, force_agg = False):
+        output = self.forward(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, col_idx)
+
+        # Some models predict both the values and number of values
+        if isinstance(output, tuple):
+            numbers, values = output
+            
+            numbers = torch.argmax(numbers, dim=-1).detach().cpu().numpy()
+            predicted_values = []
+            predicted_numbers = []
+
+            # Loop over the predictions in the batch
+            for number,value in zip(numbers, values):
+                # Pick the n largest values
+                # Make sure we actually predict something
+                if number>0:
+                    predicted_values += [torch.argsort(-value)[:number].cpu().numpy()]
+                predicted_numbers += [number]
+
+            return (predicted_numbers, predicted_values)
+
+        if force_agg:
+            output[:,-1] = -math.inf
+
+        return torch.argmax(output, dim=1).detach().cpu().numpy()
 
     def process_batch(self, batch, embedding):
         q_emb_var, q_len = embedding(batch['question'])
