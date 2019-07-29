@@ -39,7 +39,7 @@ class SyntaxSQL():
             self.andor_predictor.load(get_model_path('andor', batch_size=256, num_augmentation=0))
             self.desasc_predictor.load(get_model_path('desasc'))
             self.op_predictor.load(get_model_path('op', num_augmentation=10000))
-            self.col_predictor.load(get_model_path('column', epoch=150, num_augmentation=10000, name_postfix='repaug'))
+            self.col_predictor.load(get_model_path('column', epoch=300, num_augmentation=30000, name_postfix='rep2aug'))
             self.distinct_predictor.load(get_model_path('distinct'))
             self.agg_predictor.load(get_model_path('agg', num_augmentation=0))
             self.limit_value_predictor.load(get_model_path('limitvalue'))
@@ -263,6 +263,10 @@ class SyntaxSQL():
 
             if self.current_keyword in ('where','having'):
                 
+                # Do not permit * as valid column in where/having clauses
+                while column.column_name == '*':
+                    bp = 0
+
                 # Add the column to the corresponding clause
                 if self.current_keyword == 'where':
                     self.sql.WHERE += [Condition(column)]

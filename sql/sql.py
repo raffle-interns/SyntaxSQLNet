@@ -642,6 +642,7 @@ class DataBase():
         columns_all = []
         column_types_all = []
         table_names = data_dict['table_names_original']
+        
         for (table_id, column_name), column_type in zip(data_dict['column_names_original'], data_dict['column_types']):
             column_name = str.lower(column_name)
             #Add new index to list as we encounter new tables
@@ -652,6 +653,7 @@ class DataBase():
             if table_id>=0:
                 columns_all[table_id].append(column_name)
                 column_types_all[table_id].append(column_type)
+
         for table_name, columns, column_types in zip(table_names, columns_all, column_types_all):
             table_name =  str.lower(table_name)
             #Add the * column to all tables

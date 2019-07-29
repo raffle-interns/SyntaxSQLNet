@@ -28,15 +28,13 @@ class PretrainedEmbedding(Module):
         self.column_cache={}
         self.use_column_cache = use_column_cache
         self.gpu = gpu
+
         if use_embedding:
             self.embedding = Embedding(num_embeddings, embedding_dim, padding_idx=0)
             self.embedding.weight.data.copy_(torch.from_numpy(vectors))
-
-            if not trainable:
-                self.embedding.weight.requires_grad = False
+            if not trainable: self.embedding.weight.requires_grad = False
                 
-        if gpu:
-            self.cuda()
+        if gpu: self.cuda()
         self.device = torch.device("cuda" if self.gpu else "cpu")
 
     def forward(self, sentences, mean_sequence=False):
@@ -57,9 +55,6 @@ class PretrainedEmbedding(Module):
         batch_size = len(sentences)
 
         # Convert list of sentences to list of list of tokens
-        # TODO: should we use shlex to split, to have words in quotes stay as one word? 
-        # maybe these would just be unkown words though
-        # Replace () since these might occur in column names for some reason
         sentences_words = [word_tokenize(sentence) for sentence in sentences]
         lenghts = [len(sentence) for sentence in sentences_words]
         max_len = max(lenghts)
@@ -68,12 +63,11 @@ class PretrainedEmbedding(Module):
         indicies = torch.zeros(batch_size, max_len).long().to(self.device)
         
         # Convert tokens to indicies
-        # TODO: chose more sensible unknown token instead of just using the first (".") token
+        # TODO: choose more sensible unknown token instead of just using the first (".") token
         for i, sentence in enumerate(sentences_words):
             for j, word in enumerate(sentence):
                 indicies[i,j] = self.word2idx.get(word,0)
 
-        # TODO: pad tensors using pytorch instead of numpy?
         word_embeddings = self.embedding(indicies)
 
         if mean_sequence:
@@ -90,7 +84,7 @@ class PretrainedEmbedding(Module):
         for word in words:
             emb_list=[]
             for element in word.split('_'):
-                # if we have a trailing _ we don't want to embed an empty string
+                # If we have a trailing _ we don't want to embed an empty string
                 if element:
                     emb,_ = self(element, mean_sequence=True)
                     emb_list.append(emb)
@@ -125,13 +119,11 @@ class PretrainedEmbedding(Module):
         """
         Args:
             columns list(list(str)): nested list, where indicies corresponds to [i][j][k], i=batch, j=column, k=word  
-        
         """
         batch_size = len(columns)
 
         # Get the number of columns in each database
         lengths = [len(column) for column in columns]
-
 
         # Get the number of tokens for each column, eg ['tablename','text','column','with','long','name']
         col_name_lengths = [[len(word) for word in column] for column in columns]
@@ -151,9 +143,9 @@ class PretrainedEmbedding(Module):
         for i, db in enumerate(columns_joined):
             if str(db) in self.column_cache:
                 cached_emb, cached_lengths = self.column_cache[str(db)]
+
                 # Cache is stored in RAM
-                if self.gpu:
-                    cached_emb = cached_emb.cuda()
+                if self.gpu: cached_emb = cached_emb.cuda()
 
                 # Different batches might have different padding, so pick the minumum needed
                 min_size1 = min(cached_emb.size(0), max_len)
@@ -165,7 +157,6 @@ class PretrainedEmbedding(Module):
 
             for j, column in enumerate(db):
                 # Embedding takes in a sentence, to concat the words of the column into a sentence
-                #column = ' '.join(column)
                 emb,col_name_len = self(column)
 
                 # Embeddings: (N, # columns, # words, # features)
@@ -174,7 +165,6 @@ class PretrainedEmbedding(Module):
 
             # Try and cache the embeddings for the columns in the db
             if self.use_column_cache:
-                # Cache the embeddings on cpu side in RAM
                 self.column_cache[str(db)] = (embeddings[i,:,:].detach().cpu(), col_name_lengths[i,:])
 
         return embeddings, np.asarray(lengths),col_name_lengths
@@ -199,48 +189,6 @@ class FastTextEmbedding(PretrainedEmbedding):
             use_column_cache=use_column_cache,
             gpu=gpu)
 
-
-#def load_fasttext(language):
-    """
-    Input:
-        fasttext_bin_path: str
-            Path to fastText binaries. Can be downloaded from:
-            https://fasttext.cc/docs/en/crawl-vectors.html
-    Output:
-        fasttext_bin: FastText._FastText
-            A fastText model object.
-    """
-#    fasttext_bin_path = require_static_file("fasttext/{}/{}.300.bin".format(language, language))
-#    return ft.load_model(fasttext_bin_path)
-
-
-""" class FasttextTransform:
-    def __init__(self, language):
-        self.fasttext = load_fasttext(language)
-
-    def __call__(self, text):
-        if isinstance(text, (list, tuple)):
-            lists = []
-            for seq in text:
-                lists.append(self.get_vectors(seq))
-            return lists
-        elif isinstance(text, (Atom, str)):
-            return self.get_vectors(text)
-        else:
-            raise ValueError("Wrong input, got {}, requires str or Atom".format(type(text)))
-
-    def get_vectors(self, instance):
-        if isinstance(instance, str):
-            text = instance
-        elif isinstance(instance, Atom):
-            text = instance.text
-        else:
-            raise ValueError("Invalid input, should be `str` or `Atom`")
-
-        return np.array([self.fasttext.get_word_vector(word) for word in word_tokenize(text)])
-
-    return ft.load_model(fasttext_bin_path)
- """
 
 class GloveEmbedding(PretrainedEmbedding):
     """
