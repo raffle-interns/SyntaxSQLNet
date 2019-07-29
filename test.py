@@ -20,9 +20,15 @@ corrects = 0
 for i in tqdm(range(len(spider))):
     sample = spider[i]
 
-    predicted_sql = syntax_sql.GetSQL(sample['question'], sample['db'])
+    if '*' in str(sample['sql']):
+        bp = 0
 
+    predicted_sql = syntax_sql.GetSQL(sample['question'], sample['db'])
     results = predicted_sql.component_match(sample['sql'])
+
+    print(predicted_sql)
+    print(sample['sql'])
+    print('\n')
 
     for result, component in zip(results, corrects_components):
         if result is not None:

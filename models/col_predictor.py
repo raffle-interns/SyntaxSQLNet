@@ -8,6 +8,7 @@ from utils.lstm import PackedLSTM
 import torch
 import numpy as np
 import torch.nn as nn
+import math
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -239,8 +240,8 @@ class ColPredictor(BasePredictor):
 
         return accuracy_num.detach().cpu().numpy(), accuracy_rep.detach().cpu().numpy(), accuracy_kw
 
-    def predict(self, *args):
-        output = self.forward(*args)
+    def predict(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, exclude_idx = None):
+        output = self.forward(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len)
 
         # Some models predict both the values and number of values
         if isinstance(output, tuple):
@@ -254,6 +255,10 @@ class ColPredictor(BasePredictor):
 
             # Loop over the predictions in the batch
             for number, value, rep in zip(numbers, values, reps):
+
+                # Exclude selected idx if not None
+                if len(numbers) == 1 and exclude_idx != None:
+                    value[exclude_idx] = -math.inf
 
                 # Pick the n largest values
                 pred = torch.argsort(-value)[:number].cpu().numpy()

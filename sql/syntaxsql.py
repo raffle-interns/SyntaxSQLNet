@@ -265,7 +265,9 @@ class SyntaxSQL():
                 
                 # Do not permit * as valid column in where/having clauses
                 while column.column_name == '*':
-                    bp = 0
+                    num_cols_new, cols_new = self.col_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, exclude_idx=col)
+                    assert num_cols_new == num_cols
+                    column = self.sql.database.get_column_from_idx(cols_new[0][0])
 
                 # Add the column to the corresponding clause
                 if self.current_keyword == 'where':
