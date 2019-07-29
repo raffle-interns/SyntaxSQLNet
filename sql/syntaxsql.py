@@ -184,6 +184,7 @@ class SyntaxSQL():
         agg = self.agg_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
 
         agg = SQL_AGG[int(agg)]
+ 
         
         if self.current_keyword == 'select':
             self.sql.COLS[-1].agg = agg
@@ -191,7 +192,7 @@ class SyntaxSQL():
             self.sql.ORDERBY[-1].agg = agg
         elif self.current_keyword == 'having':
             self.sql.HAVING[-1].agg = agg
-
+        
     def generate_between(self, column):
         # Make two predictions
         for i in range(2):
@@ -212,13 +213,13 @@ class SyntaxSQL():
                     if i == 0:
                         self.sql.WHERE[-1].value = value
                     else:
-                        self.sql.WHERE[-1].valueless = valueless
+                        self.sql.WHERE[-1].valueless = value
 
                 elif self.current_keyword == 'having':
                     if i == 0:
                         self.sql.HAVING[-1].value = value
                     else:
-                        self.sql.HAVING[-1].valueless = valueless
+                        self.sql.HAVING[-1].valueless = value
 
             # The value might not exist in the question, so just ignore it
             except:
@@ -262,15 +263,19 @@ class SyntaxSQL():
             column = self.sql.database.get_column_from_idx(col)
 
             if self.current_keyword in ('where','having'):
-                
-                # Do not permit * as valid column in where/having clauses
-                while column.column_name == '*':
-                    num_cols_new, cols_new = self.col_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, exclude_idx=col)
-                    assert num_cols_new == num_cols
-                    column = self.sql.database.get_column_from_idx(cols_new[0][0])
 
                 # Add the column to the corresponding clause
                 if self.current_keyword == 'where':
+
+                    excluded_idx=[len(table.columns) for table in self.sql.database.tables]
+                    # Do not permit * as valid column in where/having clauses
+                    if column.column_name == '*':
+                        num_cols_new, cols_new = self.col_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, 
+                        self.col_emb_var, self.col_len, self.col_name_len, exclude_idx=excluded_idx)
+
+                        assert num_cols_new == num_cols
+                        column = self.sql.database.get_column_from_idx(cols_new[0][0])
+
                     self.sql.WHERE += [Condition(column)]
                 else:
                     self.sql.HAVING += [Condition(column)]
@@ -291,13 +296,27 @@ class SyntaxSQL():
                 if self.current_keyword == 'orderby':
                     self.sql.ORDERBY += [ColumnSelect(column)]
                 elif self.current_keyword == 'select':
-                    self.sql.COLS += [ColumnSelect(column)]  
+                    self.sql.COLS += [ColumnSelect(column)] 
 
                 #Each column should have an aggregator
                 self.generate_agg(column)
                 self.generate_distrinct(column)
 
+                #if agg == '':
+                # do not predicit *
+
+
             if self.current_keyword == 'groupby':
+
+                excluded_idx=[len(table.columns) for table in self.sql.database.tables]
+                # Do not permit * as valid column in where/having clauses
+                if column.column_name == '*':
+                    num_cols_new, cols_new = self.col_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, 
+                    self.col_emb_var, self.col_len, self.col_name_len, exclude_idx=excluded_idx)
+
+                    assert num_cols_new == num_cols
+                    column = self.sql.database.get_column_from_idx(cols_new[0][0]) 
+
                 self.sql.GROUPBY += [ColumnSelect(column)]
 
         if self.current_keyword == 'groupby' and len(cols)>0:
@@ -331,3 +350,4 @@ class SyntaxSQL():
         self.generate_keywords()
 
         return self.sql
+        

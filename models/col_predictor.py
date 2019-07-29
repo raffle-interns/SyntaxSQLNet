@@ -258,7 +258,10 @@ class ColPredictor(BasePredictor):
 
                 # Exclude selected idx if not None
                 if len(numbers) == 1 and exclude_idx != None:
-                    value[exclude_idx] = -math.inf
+                    count=-1
+                    for i in exclude_idx:
+                        count+=i
+                        value[count] = -math.inf
 
                 # Pick the n largest values
                 pred = torch.argsort(-value)[:number].cpu().numpy()
@@ -274,3 +277,4 @@ class ColPredictor(BasePredictor):
             return predicted_numbers, predicted_values
 
         return torch.argmax(output, dim=1).detach().cpu().numpy()
+        
