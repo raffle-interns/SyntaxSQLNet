@@ -56,7 +56,7 @@ class SyntaxSQL():
             self.embeddings = self.embeddings.cuda()
 
     def generate_select(self):
-        #All statements should start with a select statement
+        # All statements should start with a select statement
         self.current_keyword = 'select'
         self.generate_columns()
 
@@ -65,7 +65,7 @@ class SyntaxSQL():
         self.generate_columns()
 
     def generate_ascdesc(self, column):
-        # get the history, from the current sql
+        # Get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb([history['having'][-1]])
         
@@ -90,7 +90,7 @@ class SyntaxSQL():
         self.generate_columns()
 
     def generate_having(self, column):
-        # get the history, from the current sql
+        # Get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb([history['having'][-1]])
         
@@ -106,7 +106,7 @@ class SyntaxSQL():
 
         KEYWORDS =[self.generate_where, self.generate_groupby, self.generate_orderby]
         
-        # get the history, from the current sql
+        # Get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb(history['keyword'])
        
@@ -114,17 +114,17 @@ class SyntaxSQL():
 
         if num_kw[0] == 0:
             return
-        #We want the keywords in the same order as much as possible
-        #Keywords are added FIFO queue, so sort it
+        # We want the keywords in the same order as much as possible
+        # Keywords are added FIFO queue, so sort it
         key_words = sorted(kws[0]) 
 
-        #Add other states to the list
+        # Add other states to the list
         for key_word in key_words:
             KEYWORDS[int(key_word)]()
-        #First state should be a select state
+        # First state should be a select state
         
     def generate_andor(self, column):
-        # get the history, from the current sql
+        # Get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb([history['andor'][-1]])
         
@@ -137,7 +137,7 @@ class SyntaxSQL():
             self.sql.HAVING[-1].cond_op = andor
         
     def generate_op(self, column):
-        # get the history, from the current sql
+        # Get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb([history['op'][-1]])
         
@@ -156,7 +156,7 @@ class SyntaxSQL():
 
 
     def generate_distrinct(self, column):
-        # get the history, from the current sql
+        # Get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb([history['distinct'][-1]])
 
@@ -175,7 +175,7 @@ class SyntaxSQL():
 
     def generate_agg(self, column):
 
-        # get the history, from the current sql
+        # Get the history, from the current sql
         history = self.sql.generate_history()
         hs_emb_var, hs_len = self.embeddings.get_history_emb([history['agg'][-1]])
 
@@ -184,8 +184,7 @@ class SyntaxSQL():
         agg = self.agg_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, col_idx)
 
         agg = SQL_AGG[int(agg)]
- 
-        
+    
         if self.current_keyword == 'select':
             self.sql.COLS[-1].agg = agg
         elif self.current_keyword == 'orderby':
@@ -259,6 +258,15 @@ class SyntaxSQL():
         # Predictions are returned as lists, but it only has one element
         num_cols, cols = num_cols[0], cols[0]
 
+        def exclude_all_from_columns():
+            # Do not permit * as valid column in where/having clauses
+            excluded_idx=[len(table.columns) for table in self.sql.database.tables]
+
+            _, cols_new = self.col_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, 
+                self.col_emb_var, self.col_len, self.col_name_len, exclude_idx=excluded_idx)
+        
+            return self.sql.database.get_column_from_idx(cols_new[0][0])
+
         for i, col in enumerate(cols):
             column = self.sql.database.get_column_from_idx(col)
 
@@ -266,15 +274,8 @@ class SyntaxSQL():
 
                 # Add the column to the corresponding clause
                 if self.current_keyword == 'where':
-
-                    excluded_idx=[len(table.columns) for table in self.sql.database.tables]
-                    # Do not permit * as valid column in where/having clauses
                     if column.column_name == '*':
-                        num_cols_new, cols_new = self.col_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, 
-                        self.col_emb_var, self.col_len, self.col_name_len, exclude_idx=excluded_idx)
-
-                        assert num_cols_new == num_cols
-                        column = self.sql.database.get_column_from_idx(cols_new[0][0])
+                        column = exclude_all_from_columns()
 
                     self.sql.WHERE += [Condition(column)]
                 else:
@@ -298,24 +299,16 @@ class SyntaxSQL():
                 elif self.current_keyword == 'select':
                     self.sql.COLS += [ColumnSelect(column)] 
 
-                #Each column should have an aggregator
+                # Each column should have an aggregator
                 self.generate_agg(column)
                 self.generate_distrinct(column)
 
                 #if agg == '':
                 # do not predicit *
 
-
             if self.current_keyword == 'groupby':
-
-                excluded_idx=[len(table.columns) for table in self.sql.database.tables]
-                # Do not permit * as valid column in where/having clauses
                 if column.column_name == '*':
-                    num_cols_new, cols_new = self.col_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, 
-                    self.col_emb_var, self.col_len, self.col_name_len, exclude_idx=excluded_idx)
-
-                    assert num_cols_new == num_cols
-                    column = self.sql.database.get_column_from_idx(cols_new[0][0]) 
+                    column = exclude_all_from_columns()
 
                 self.sql.GROUPBY += [ColumnSelect(column)]
 
@@ -350,4 +343,3 @@ class SyntaxSQL():
         self.generate_keywords()
 
         return self.sql
-        
