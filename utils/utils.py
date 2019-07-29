@@ -75,7 +75,7 @@ def pad(sentences, pad_token=0):
 	
     return padded, lengths
 
-def text2int (textnum, numwords={}):
+def text2int(textnum, numwords={}):
     """
     Converts string of length n with numbers written in letters into actual numbers of same length
 

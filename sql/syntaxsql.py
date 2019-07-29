@@ -11,6 +11,7 @@ from models.distinct_predictor import DistinctPredictor
 from models.value_predictor import ValuePredictor
 from sql.sql import SQLStatement, Condition, ColumnSelect, SQL_OPS, SQL_AGG, SQL_COND_OPS, SQL_KEYWORDS, SQL_DISTINCT_OP, SQL_ORDERBY_OPS
 from nltk.tokenize import word_tokenize
+from utils.utils import text2int
 
 class SyntaxSQL():
     """
@@ -154,7 +155,6 @@ class SyntaxSQL():
 
         return op
 
-
     def generate_distrinct(self, column):
         # Get the history, from the current sql
         history = self.sql.generate_history()
@@ -237,6 +237,7 @@ class SyntaxSQL():
 
         try:
             value = ' '.join(tokens[start_index:start_index+num_tokens])
+            value = text2int(value)
             
             if self.current_keyword == 'where':
                 self.sql.WHERE[-1].value = value
@@ -333,7 +334,7 @@ class SyntaxSQL():
             columns_all_splitted += [columns_tmp]
 
         self.col_emb_var, self.col_len, self.col_name_len = self.embeddings.get_columns_emb([columns_all_splitted])
-        batch_size, num_cols_in_db, col_name_lens, embedding_dim = self.col_emb_var.shape
+        _, num_cols_in_db, col_name_lens, embedding_dim = self.col_emb_var.shape
         
         self.col_emb_var = self.col_emb_var.reshape(num_cols_in_db, col_name_lens, embedding_dim) 
         self.col_name_len = self.col_name_len.reshape(-1)
