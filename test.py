@@ -36,6 +36,6 @@ for i in tqdm(range(len(spider))):
 
 print("\n# Components #")
 for component in corrects_components:
-    print(f"{component:12} accuracy = {np.mean(corrects_components[component]):0.3f}")
+    print(f"{component:12} accuracy = {np.mean(corrects_components[component]):0.3f}   global misrate = {(np.asarray(corrects_components[component])==0).sum()/len(spider):0.3f}")
 print("\n#    Total   #")
 print(f"total        accuracy = {corrects/len(spider):0.3f}")
