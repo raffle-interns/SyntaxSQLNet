@@ -31,13 +31,10 @@ class Attention(Module):
         if key is None:
             key = query
 
-
         attention_weights = self.score(query, key, mask) # [batch_size, seq_len2, seq_len1]
-
         context = attention_weights.matmul(value) #[batch_size, seq_len2, hidden_dim]
 
         return context, attention_weights
-
 
 
 class GeneralAttention(Attention):
@@ -99,12 +96,12 @@ class UniformAttention(Attention):
         batch_size, seq_len, hidden_dim = query.shape
         
         attn = torch.ones(batch_size, seq_len, 1, device = query.device) 
-        #We might have to mask some of the input, if we have padding
+        # We might have to mask some of the input, if we have padding
         if mask is not None:
             attn.masked_fill_(mask,-float("inf"))
 
         attn = attn.permute(0,2,1) #[batch_size, 1, seq_len]
-        #Softmax over the seq_len1 dimension
+        # Softmax over the seq_len1 dimension
         attention_weights = self.softmax(attn) 
 
         return attention_weights
@@ -121,7 +118,7 @@ class ConditionalAttention(Module):
         self.attention = GeneralAttention(hidden_dim)
         self.bag_of_word = UniformAttention()
         self.W = Linear(in_features=hidden_dim, out_features=hidden_dim)
-        #TODO: maybe it's more clear to split up the attention and bag of words?
+        # TODO: maybe it's more clear to split up the attention and bag of words?
         self.use_bag_of_word = use_bag_of_word
 
     def forward(self, variable, condition, variable_lengths=None, condition_lengths=None):
@@ -134,7 +131,7 @@ class ConditionalAttention(Module):
         Returns:
             H_var_cond [batch_size, hidden_dim]
         """
-        #If the lengths is not given for any of the sequences, we assume that there is no mask
+        # If the lengths is not given for any of the sequences, we assume that there is no mask
         if variable_lengths is None and condition_lengths is None:
             mask_var_cond = None
             mask_cond = None
@@ -145,17 +142,17 @@ class ConditionalAttention(Module):
         else:
             mask_var_cond = length_to_mask(variable_lengths, condition_lengths).to(variable.device) # [batch_size, var_seq_len, cond_seq_len]
             mask_cond = length_to_mask(condition_lengths).to(variable.device) # [batch_size, cond_seq_len, 1]
-        #TODO: what if we only have the lengths for the condition?
+        # TODO: what if we only have the lengths for the condition?
 
         # Run attention conditioned on the column embeddings
-        H_var_cond, _ = self.attention(variable, key=condition, mask=mask_var_cond) #[batch_size, num_cols_in_db, hidden_dim]
+        H_var_cond, _ = self.attention(variable, key=condition, mask=mask_var_cond) # [batch_size, num_cols_in_db, hidden_dim]
 
         if self.use_bag_of_word:
             # Use Bag of Words to remove column length
-            H_var_cond, _ = self.bag_of_word(H_var_cond, mask=mask_cond) #[batch_size, 1, hidden_dim]
-            H_var_cond = H_var_cond.squeeze(1) #[batch_size, hidden_dim]
+            H_var_cond, _ = self.bag_of_word(H_var_cond, mask=mask_cond) # [batch_size, 1, hidden_dim]
+            H_var_cond = H_var_cond.squeeze(1) # [batch_size, hidden_dim]
 
-        #Project embedding
+        # Project embedding
         H_var_cond = self.W(H_var_cond) # [batch_size, num_cols_in_db, hidden_dim] or [batch_size, hidden_dim]
 
         return H_var_cond
@@ -179,12 +176,13 @@ class BagOfWord(Module):
         """
         mask = length_to_mask(lengths)
         mask = mask.to(variable.device)
-        #Calculate masked mean using uniform attention
-        context, _ = self.attention(variable, mask=mask) #[batch_size, 1, hidden_dim]
-        context = context.squeeze(1) #[batch_size, hidden_dim]
+        # Calculate masked mean using uniform attention
+        context, _ = self.attention(variable, mask=mask) # [batch_size, 1, hidden_dim]
+        context = context.squeeze(1) # [batch_size, hidden_dim]
         return context
 
 if __name__ == '__main__':
+    # Simple test of attention functionality
     key = torch.rand(3,5,25)
     query = torch.rand(3,10,25)
     value = torch.rand(3,10,25)

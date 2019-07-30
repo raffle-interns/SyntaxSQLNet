@@ -176,7 +176,7 @@ class ColPredictor(BasePredictor):
         # Add cross entropy loss over the number of repeats
         loss += self.cross_entropy(col_rep_score, col_rep_truth)
 
-        # And binary cross entropy over the keywords predicted
+        # Add binary cross entropy over the keywords predicted
         loss += self.bce_logit(col_score[mask], col_truth[mask])
 
         return loss
@@ -221,6 +221,7 @@ class ColPredictor(BasePredictor):
 
         correct_keywords = 0
         for i in range(batch_size):
+
             # Select columns
             num_kw = int(col_num_truth[i])
             num_rep = int(kw_num_prediction[i])

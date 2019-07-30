@@ -16,5 +16,4 @@ class LimitValuePredictor(AggPredictor):
         super(LimitValuePredictor, self).__init__(*args, **kwargs, num=num)
 
     def predict(self, *args):
-        # TODO: Add 1 to prediction both here and during training
         return AggPredictor.predict(self, *args)
