@@ -13,13 +13,13 @@ With these changes, our model achives the following accuracy on easy+medium ques
 | Component   | Accuracy |
 |-------------|----------|
 | SELECT      | 72.5%    |
-| WHERE       | 48.2%    |
-| GROUP BY    | 54.2%    |
-| ORDER BY    | 63.0%    |
-| HAVING      | 76.2%    |
-| LIMIT value | 90.1%    |
-| KEYWORDS    | 90.5%    |
-| **Total**       | 46.7%    |
+| WHERE       | 48.6%    |
+| GROUP BY    | 63.5%    |
+| ORDER BY    | 65.9%    |
+| HAVING      | 88.9%    |
+| LIMIT value | 94.9%    |
+| KEYWORDS    | 94.4%    |
+| **Total**   | 49.0%    |
 
 
 ## Setup
