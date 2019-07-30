@@ -57,7 +57,16 @@ def length_to_mask(lengths, lengths2=None, max_len=None, max_len2=None, device=t
 
 	
 def pad(sentences, pad_token=0):
+    """
+    Converts list of sentences into padded sentences in a numpy array
 
+    Args:
+        sentences [List] : list of lengths
+        pad_token int : padding token
+    Returns:
+        padded [Numpy Array of size List]: padded sentences of equal length
+        lengths: the original length of each sentence
+    """
     #Calculat the sequence length of the batch
     lengths = [len(sentence) for sentence in sentences]
     max_len = max(lengths)
@@ -143,61 +152,6 @@ def text2int(textnum, numwords={}):
         curstring += repr(result + current)
 
     return curstring
-
-def make_dirs(directory,name):
-    try:
-        os.mkdir(directory+f'/{name}_train')
-        os.mkdir(directory+f'/{name}_val')
-    except FileExistsError:
-        shutil.rmtree(directory+f'/{name}_train')
-        shutil.rmtree(directory+f'/{name}_val')
-        os.mkdir(directory+f'/{name}_train')
-        os.mkdir(directory+f'/{name}_val')
-
-def save_to_dirs(directory,name,info):
-    [iter_epoch, train_loss_pickle, train_acc_pickle, train_num_train_pickle, val_loss_pickle, val_acc_pickle, val_num_val_pickle] = info
-    with open(directory+f'{name}_train/'+'epoch_iter.pkl','wb') as f:
-        pickle.dump(iter_epoch,f)
-    with open(directory+f'{name}_val/'+'epoch_iter.pkl','wb') as f:
-        pickle.dump(iter_epoch,f)
-    with open(directory+f'{name}_train/'+'train_loss.pkl','wb') as f:
-        pickle.dump(train_loss_pickle,f)
-    with open(directory+f'{name}_train/'+'train_acc.pkl','wb') as f:
-        pickle.dump(train_acc_pickle,f)
-    with open(directory+f'{name}_train/'+'train_num_train.pkl','wb') as f:
-        pickle.dump(train_num_train_pickle,f)
-    with open(directory+f'{name}_val/'+'val_loss.pkl','wb') as f:
-        pickle.dump(val_loss_pickle,f)
-    with open(directory+f'{name}_val/'+'val_acc.pkl','wb') as f:
-        pickle.dump(val_acc_pickle,f)
-    with open(directory+f'{name}_val/'+'val_num_val.pkl','wb') as f:
-        pickle.dump(val_num_val_pickle,f)
-
-def plot_from_dirs(directory,name,info):
-    with open(directory+f'{name}_train/'+'epoch_iter.pkl','rb') as f:
-        iter_epoch = pickle.load(f)
-    with open(directory+f'{name}_train/'+'train_loss.pkl','rb') as f:
-        train_loss_pickle = pickle.load(f)
-    with open(directory+f'{name}_train/'+'train_acc.pkl','rb') as f:
-        train_acc_pickle = pickle.load(f)
-    with open(directory+f'{name}_train/'+'train_num_train.pkl','rb') as f:
-        train_num_train_pickle = pickle.load(f)
-    with open(directory+f'{name}_val/'+'val_loss.pkl','rb') as f:
-        val_loss_pickle = pickle.load(f)
-    with open(directory+f'{name}_val/'+'val_acc.pkl','rb') as f:
-        val_acc_pickle = pickle.load(f)
-    with open(directory+f'{name}_val/'+'val_num_val.pkl','rb') as f:
-        val_num_val_pickle = pickle.load(f)
-    plt.subplot(2,1,1)
-    plt.plot( iter_epoch, train_loss_pickle , color='blue', label='train', linewidth=2)
-    plt.plot( iter_epoch, val_loss_pickle, color='olive', label='val', linewidth=2)
-    plt.ylabel('loss')
-    plt.subplot(2,1,2)
-    plt.plot( iter_epoch, train_acc_pickle , color='blue', label='train', linewidth=2)
-    plt.plot( iter_epoch, val_acc_pickle, color='olive', label='val', linewidth=2)
-    plt.xlabel('epochs')
-    plt.ylabel('acc')
-    plt.show()
 
 if __name__ == '__main__':
 

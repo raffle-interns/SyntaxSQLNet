@@ -2,6 +2,7 @@ import re
 from itertools import zip_longest
 import shlex
 
+#Values the the differenct clauses can take
 SQL_OPS = ['=','>','<','>=','<=','!=','NOT LIKE','LIKE','BETWEEN']
 SQL_AGG = ['max','min','count','sum','avg','']
 SQL_COND_OPS = ['AND','OR','']
@@ -9,15 +10,15 @@ SQL_ORDERBY_OPS = ['DESC LIMIT','ASC LIMIT','DESC','ASC','LIMIT','']
 SQL_DISTINCT_OP = ['distinct','']
 SQL_KEYWORDS = ['where','group by','order by']
 
-# We need these to convert sql keywords into words that exists in our embeddings
-# ...Maybe not since nltk splits "!=" to "!","=" and the asc, desc exists in the glove embeddings. Maybe they aren't as good as the true word?
+#dictionary to look up values in the vocabulary of the embedding
 SQL_AGG_dict = {'max':'maximum', 'min':'minimum', 'count':'count','sum':'sum', 'avg':'average'}
 SQL_ORDERBY_OPS_dict = {'DESC LIMIT':'descending limit', 'ASC LIMIT':'ascending limit', 'DESC':'descending', 'ASC':'ascending', 'LIMIT':'limit', 'NONE': 'none'}
 SQL_OPS_dict = {'=':'=','>':'>','<':'<','>=':'> =','<=':'< =','!=':'! =','NOT LIKE':'not like','LIKE':'like','BETWEEN':'between'}
 
 class SQLStatement():
     """
-    Class
+    Class for creating a representation of the resulting SQL statement in form of 
+    different clauses given an initial question and a database.
     """
     def __init__(self, query = None, database=None):
         self.COLS = []
@@ -29,9 +30,7 @@ class SQLStatement():
         self.HAVING = []
         self.LIMIT_VALUE = ""
         self.database = database
-        if isinstance(query, dict):
-            self.from_dict(query)
-        elif isinstance(query, str):
+        if isinstance(query, str):
             self.from_query(query)
     
     def __eq__(self, other):
@@ -57,6 +56,7 @@ class SQLStatement():
         )
 
     def component_match(self, other):
+        #Compares the generated SQL statement clausewise, calculated from an initial question and database, with a predicted statement
         return ( 
             set(self.COLS)==set(other.COLS),
             set(self.WHERE)==set(other.WHERE) if self.WHERE else None,
@@ -92,10 +92,14 @@ class SQLStatement():
         return andors              
 
     def from_query(self, query):
+        """
+        Create an SQL Statement from a query with the structure from SPIDER
+        """
+
         # Remove closing ;
         query = query.replace(';','')
 
-        # TODO: What about multiply (* is also used as wildcard)
+        #Check if we have division, multiplication or subtractions in the query
         if ' - ' in query or ' + ' in query or ' / ' in query:
             raise NotImplementedError(f"Doesn't support arithmetic in query : {query}")
         
@@ -264,150 +268,11 @@ class SQLStatement():
                     column = self.database.get_column(col, self.TABLE)
                     column = ColumnSelect(column, agg, distinct)
                     self.ORDERBY.append(column)
-                          
-    def from_dict(self, query_dict1):
-        """
-        Create an SQLStatement from a dict with the structure from SPIDER
-        """
-        raise DeprecationWarning('from_dict method is not up to date')
-        query_dict = query_dict1['raffle_query']
-        for key in query_dict:
-            if key == "SELECT":
-                
-                columns = iter(query_dict[key])
-                for column in columns:
-                    agg, distinct = '',''
-                    column = str.lower(column).strip()
-                    #Some commas might appear 
-                    if column == ',':
-                        continue
-                    #Some queries has aggregator and column split into two different entries
-                    if column in SQL_AGG:
-                        agg = column
-                        #Get the column from next index
-                        col = next(columns)
-                        col = str.lower(col.replace('(','').replace(')','').strip())
-                        if 'distinct' in col:
-                            distinct, col = col.split()
-
-                    elif column == 'distinct':
-                        distinct = column
-                        col = str.lower(next(columns))
-                        if col in SQL_AGG:
-                            agg = col
-                            col = next(columns)
-                    #Check if there is an aggregator in the selection
-                    elif '(' in column:
-                        agg = column.split('(')[0]
-                        col = column.split('(')[1].split(')')[0]
-                        # Columns with aggregators might include the distinct keyword
-                        if 'distinct' in col:
-                            distinct, col = col.split()
-                    else:
-                        col = column
-                    column = self.database.get_column(col, self.TABLE)
-                    self.COLS.append(ColumnSelect(column, agg=agg, distinct=distinct))
-            
-            elif key == "FROM":
-                self.TABLE = str.lower(query_dict[key][0])
-            
-            elif key == "GROUP BY":
-                for column in query_dict[key]:
-                    column = str.lower(column).replace('(','').replace(')','').strip()
-                    column = self.database.get_column(column, self.TABLE)
-                    self.GROUPBY.append(column)
-            
-            elif key == "WHERE":
-
-                conditions = query_dict[key][0]
-                
-                #TODO: fix so we also support between in our model
-                if 'BETWEEN' in conditions:
-                    raise NotImplementedError('Statement doesn"t support between')
-
-                #Find any AND/OR operators
-                conditional_ops = re.findall('(AND|OR)',conditions)
-                #Split statements into individual statements
-                conditions = re.split('AND|OR',conditions)
-                #Combine the statement and AND/OR
-                for condition, conditional_op in zip_longest(conditions, conditional_ops, fillvalue=""):
-                    #shlex doesn't split substrings in quotes, e.g 
-                    #'book = "long title with multiple words"' -> ['book','=','long title with multiple words']
-                    
-                    condition_list = shlex.split(condition)
-                    #with negated conditions ("not like") we can't just split by whitespace, since we need to combine "not" and "like"
-                    if len(condition_list)>3:
-                        column, op, value = condition_list[0], ' '.join(condition_list[1:3]), condition_list[3]
-                    else:
-                        column, op, value = condition_list
-                    #TODO: value might contain semicolon
-                    value = value.replace(';','')
-                    column = str.lower(column)
-                    column = self.database.get_column(column, self.TABLE)
-                    self.WHERE.append(Condition(column, op, value, conditional_op))
-
-            elif key == "ORDER BY":
-                statements = iter(query_dict[key])
-                for statement in statements:
-                    statement = str.lower(statement)
-                    agg = ''
-                    #Check if statement contains an aggregator
-                    if '(' in statement:
-                        agg = statement.split('(')[0]
-                        col = statement.split('(')[1].split(')')[0]
-
-                    elif statement in SQL_AGG:
-                        agg = statement
-                        #Get the column from next index
-                        col = next(statements)
-                        col = str.lower(col.replace('(','').replace(')','').strip())
-                        if 'distinct' in col:
-                            distinct, col = col.split()
-
-                        #TODO: Can order by have distinct?
-                    #Some of the statements has desc/asc as a seperate entry in the list
-                    #So make sure the statement is a column and not just the operator
-                    elif statement in SQL_ORDERBY_OPS:
-                        self.ORDERBY_OP = statement
-                        continue
-                    
-                    else:
-                        col = statement.split()[0]
-
-                    column = self.database.get_column(col, self.TABLE)
-                    column = ColumnSelect(column, agg)
-                    self.ORDERBY.append(column)
-                    
-                    #Set the DESC/ASC op if statement contains it
-                    orderby_op = re.findall('(DESC|ASC)',statement)
-                    if orderby_op:
-                        self.ORDERBY_OP += [orderby_op[0]]
-                
-            elif key == "HAVING":
-                conditions = query_dict[key][0]
-                #Find any AND/OR operators
-                conditional_ops = re.findall('(AND|OR)',conditions)
-                #Split statements into individual statements
-                conditions = re.split('AND|OR',conditions)
-                #Combine the statement and AND/OR
-                for condition, conditional_op in zip_longest(conditions, conditional_ops, fillvalue=""):
-                    column, op, value = condition.split()
-                    
-                    agg = ''
-                    #Check if statement contains an aggregator
-                    if '(' in column:
-                        agg = column.split('(')[0]
-                        col = column.split('(')[1].split(')')[0]
-                        #TODO: Can order by have distinct?
-                    #Some of the statements has desc/asc as a seperate entry in the list
-                    #So make sure the statement is a column and not just the operator
-                    elif statement not in SQL_ORDERBY_OPS:
-                        col = column
-                    column = str.lower(col)
-                    column = self.database.get_column(col, self.TABLE)
-                    self.HAVING.append(Condition(column, agg, op, value, conditional_op))
-                    
+                                              
     def generate_history(self):
+        """
+        Generate the history of the resulting sql statement for each of the clauses and ave it as a dictionary
+        """
         
         history_dict = {'col':[], 'agg':[], 'andor':[], 'keyword':[], 'op':[], 'value':[], 'having':[], 'decasc':[], 'distinct':[]}
 
@@ -531,6 +396,9 @@ class SQLStatement():
         return sql_string
 
 class ColumnSelect():
+    """
+    Class for column object containing information about column name, type of aggregator and distinct
+    """
     column = None
     agg = ""
     distinct = ""
@@ -562,6 +430,9 @@ class ColumnSelect():
         return hash(str(self))
 
 class Condition():
+    """
+    collective class for operators, aggregators, values and conditional operators
+    """
     column_select = None
     op = ""
     value = ""
@@ -628,6 +499,9 @@ class Condition():
 SQL_TYPES = ("text","number", "others")
 
 class DataBase():
+    """
+    Class for Database containing information about database id, name of tables and their columns
+    """
 
     def __init__(self, data):
         self.tables = []
@@ -686,6 +560,9 @@ class DataBase():
         return columns.index(column.to_list())
         
 class Table():
+    """
+    Class for representing a table with fields: column name, name of the table and type of column
+    """
 
     def __init__(self, table_name, column_names, column_types):
         self.column_dict = {}
@@ -698,7 +575,9 @@ class Table():
         self.column_types = column_types
 
 class Column():
-
+    """
+    Class for representing a column with fields: column name, name of the table, type of column and name of database
+    """
     def __init__(self, column_name, table_name, column_type, database_name=""):
         self.column_name = column_name
         self.table_name = table_name
@@ -713,7 +592,7 @@ class Column():
 
     def to_list(self):
         return [self.column_type, self.table_name,self.column_name]
-        
+
 if __name__ == "__main__":
     import json
 
