@@ -3,8 +3,13 @@ import torch
 from torch.nn import Embedding, Module
 from nltk.tokenize import word_tokenize
 import os
-from something.datascience.transforms.embeddings.sentence_embeddings.laser.laser import LaserSentenceEmbeddings
-from something.datascience.transforms.embeddings.word_embeddings.fasttext.fasttext import FastTextWrapper, FasttextTransform
+import pickle
+try:
+    from something.datascience.transforms.embeddings.sentence_embeddings.laser.laser import LaserSentenceEmbeddings
+    from something.datascience.transforms.embeddings.word_embeddings.fasttext.fasttext import FastTextWrapper, FasttextTransform
+    raffle_import = True
+except:
+    raffle_import = False
 
 class PretrainedEmbedding(Module):
     """
@@ -170,26 +175,6 @@ class PretrainedEmbedding(Module):
         return embeddings, np.asarray(lengths),col_name_lengths
 
 
-class FastTextEmbedding(PretrainedEmbedding):
-    """
-    Class responsible for fastText embeddings.
-    https://arxiv.org/abs/1712.09405
-    """
-    def __init__(self, language='english', use_column_cache=True, gpu=True):
-
-        self.fast = FasttextTransform(language)
-
-
-
-        super(FastTextEmbedding, self).__init__(num_embeddings=None,
-            embedding_dim=300,
-            word2idx=None,
-            vectors = None,
-            trainable=False,
-            use_column_cache=use_column_cache,
-            gpu=gpu)
-
-
 class GloveEmbedding(PretrainedEmbedding):
     """
     Class responsible for GloVe embeddings.
@@ -227,85 +212,109 @@ class GloveEmbedding(PretrainedEmbedding):
             gpu=gpu
         )
 
+if raffle_import:
 
-class LaserEmbedding(PretrainedEmbedding):
-    """
-    Wrapper for pretrained LASER embeddings provided by raffle.ai.
-    https://arxiv.org/abs/1812.10464
-    """
-    #word2idx={}, vectors=np.ones((1,1024),
-    def __init__(self):
-        super(LaserEmbedding, self).__init__(num_embeddings=1, 
-            embedding_dim=1024,
-            word2idx={}, 
-            vectors=[], 
-            trainable=False, 
-            use_column_cache=True, 
-            gpu=True, use_embedding=False)
-        # Initialize the raffle.ai implementation of LASER
-        self.embedder = LaserSentenceEmbeddings()
-
-    def forward(self, sentences, mean_sequence=False):
+    class FastTextEmbedding(PretrainedEmbedding):
         """
-        Args:
-            sentences list[str] or str: list of sentences, or one sentence
-            mean_sequence bool: Flag if we should mean over the sequence dimension
-        Returns:
-            embedding [batch_size, seq_len, embedding_dim] or [batch_size, 1, embedding_dim]
-            lenghts [batch_size]
+        Class responsible for fastText embeddings.
+        https://arxiv.org/abs/1712.09405
         """
-        if not isinstance(sentences, list):
-            sentences = [sentences]
+        def __init__(self, language='english', use_column_cache=True, gpu=True):
+            self.fast = FasttextTransform(language)
 
-        # Convert words to lowercase
-        sentences = [str.lower(sentence) for sentence in sentences]
-        
-        # Convert list of sentences to list of list of tokens
-        # TODO: should we use shlex to split, to have words in quotes stay as one word? 
-        #      maybe these would just be unkown words though
-        sentences_words = [word_tokenize(sentence) for sentence in sentences]
+            super(FastTextEmbedding, self).__init__(num_embeddings=None,
+                embedding_dim=300,
+                word2idx=None,
+                vectors = None,
+                trainable=False,
+                use_column_cache=use_column_cache,
+                gpu=gpu)
 
-        # Define sequence length as max length sentence in batch
-        lengths = [len(sentence) for sentence in sentences_words]
-        max_len = max(lengths)
-        
-        word_embeddings = []
-        if not isinstance(self.vectors, list):
-            self.vectors = list(self.vectors)
+    class LaserEmbedding(PretrainedEmbedding):
+        """
+        Wrapper for pretrained LASER embeddings provided by raffle.ai.
+        https://arxiv.org/abs/1812.10464
+        """
+        #word2idx={}, vectors=np.ones((1,1024),
+        def __init__(self, path='data/laser_cached_en.pkl', gpu=True):
+            super(LaserEmbedding, self).__init__(num_embeddings=1, 
+                embedding_dim=1024,
+                word2idx={}, 
+                vectors=[], 
+                trainable=False, 
+                use_column_cache=True, 
+                gpu=gpu, use_embedding=False)
+            # Initialize the raffle.ai implementation of LASER
+            self.embedder = LaserSentenceEmbeddings()
+
+            try:
+                with open(path, 'rb') as file:
+                    self.word2idx, self.vectors = pickle.load(file)
+            except FileNotFoundError:
+                # No precalculated embeddings file found, just generate them as we go
+                pass
+        def save(self, path):
+            with open(path,'wb') as f:
+                pickle.dump((self.word2idx, self.vectors), f)
+
+        def forward(self, sentences, mean_sequence=False, language='en'):
+            """
+            Args:
+                sentences list[str] or str: list of sentences, or one sentence
+                mean_sequence bool: Flag if we should mean over the sequence dimension
+            Returns:
+                embedding [batch_size, seq_len, embedding_dim] or [batch_size, 1, embedding_dim]
+                lenghts [batch_size]
+            """
+            if not isinstance(sentences, list):
+                sentences = [sentences]
+            batch_size = len(sentences)
+            # Convert words to lowercase
+            sentences = [str.lower(sentence) for sentence in sentences]
             
-        if mean_sequence:
-            # Embed full sentence by taking mean over sequence of words
-            for sentence in sentences:
-                word_embeddings.append(self.embedder(sentence, method="sentence", language='en'))
+            # Convert list of sentences to list of list of tokens
+            # TODO: should we use shlex to split, to have words in quotes stay as one word? 
+            #      maybe these would just be unkown words though
+            sentences_words = [word_tokenize(sentence) for sentence in sentences]
 
-        else:
-            # Convert tokens to indicies
-            for i, sentence in enumerate(sentences_words):
-                for j, word in enumerate(sentence):
-                    if word not in self.word2idx:
-                        self.word2idx[word] = len(self.word2idx)
-                        self.vectors.append(self.embedder(word, method="sentence", language='en'))
+            # Define sequence length as max length sentence in batch
+            lengths = [len(sentence) for sentence in sentences_words]
+            max_len = max(lengths)
             
-            #update vectors and number of embeddings
-            self.num_embeddings=len(self.word2idx)
             
-            # retrieve needed vectors of each token for every sentences
-            for i, sentence in enumerate(sentences_words):
-                sentence_list=[]
-                for j, word in enumerate(sentence):
-                    sentence_list.append(self.vectors[self.word2idx.get(word,0)].reshape(-1))
-                length = 0
-                while lengths[i] + length< max_len:
-                    sentence_list.append(np.zeros((1,self.embedding_dim), dtype=float))
-                    length += 1
-                word_embeddings.append(sentence_list)
+            if not isinstance(self.vectors, list):
+                self.vectors = list(self.vectors)
+                
+            if mean_sequence:
+                # Embed full sentence by taking mean over sequence of words
+                word_embeddings = torch.zeros(batch_size, self.embedding_dim)
+            
+                for i, sentence in enumerate(sentences):
+                    word_embeddings[i] = torch.tensor(self.embedder(sentence, method="sentence", language=language))
 
-        word_embeddings = torch.tensor(word_embeddings).squeeze()
-        if len(word_embeddings.shape)<3:
-            word_embeddings = word_embeddings.unsqueeze(0)
+            else:
+                word_embeddings = torch.zeros(batch_size, max_len, self.embedding_dim)
+            
+                # Convert tokens to indicies
+                for i, sentence in enumerate(sentences_words):
+                    for j, word in enumerate(sentence):
+                        if word not in self.word2idx:
+                            self.word2idx[word] = len(self.word2idx)
+                            self.vectors.append(torch.tensor(self.embedder(word, method="sentence", language=language)))
+                
+                #update vectors and number of embeddings
+                self.num_embeddings=len(self.word2idx)
+                
 
-        return  word_embeddings, np.asarray(lengths)
-        
+                # retrieve needed vectors of each token for every sentences
+                for i, sentence in enumerate(sentences_words):
+                    for j, word in enumerate(sentence):
+                        word_embeddings[i,j] = self.vectors[self.word2idx[word]]
+
+            if self.gpu: word_embeddings = word_embeddings.cuda()
+
+            return  word_embeddings, np.asarray(lengths)
+            
 
 if __name__ == "__main__":
     for embedder in [GloveEmbedding()]:
