@@ -11,6 +11,7 @@ from utils.dataloader import SpiderDataset, try_tensor_collate_fn
 from embedding.embeddings import GloveEmbedding
 from torch.utils.data import DataLoader
 from models.base_predictor import BasePredictor
+import math
 
 class ValuePredictor(BasePredictor):
     """
@@ -178,10 +179,18 @@ class ValuePredictor(BasePredictor):
         return accuracy_num.detach().cpu().numpy(), accuracy_value.detach().cpu().numpy()
 
 
-    def predict(self, *args):
-        output = self.forward(*args)
+    def predict(self, q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len, ban_prediction = None, int_mask = None):
+        output = self.forward(q_emb_var, q_len, hs_emb_var, hs_len, col_emb_var, col_len, col_name_len)
 
         num_tokens, values = output
+
+        if ban_prediction is not None:
+            num, val = ban_prediction
+            values[:,val] = -math.inf
+
+        if int_mask is not None:
+            for i, b in enumerate(int_mask):
+                if not b: values[:,i] = -math.inf
         
         num_tokens = torch.argmax(num_tokens, dim=1).detach().cpu().numpy() + 1
         token_start_idx = torch.argmax(values, dim=1).detach().cpu().numpy()

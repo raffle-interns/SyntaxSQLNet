@@ -44,7 +44,7 @@ class SyntaxSQL():
             self.distinct_predictor.load(get_model_path('distinct'))
             self.agg_predictor.load(get_model_path('agg', num_augmentation=0))
             self.limit_value_predictor.load(get_model_path('limitvalue'))
-            self.value_predictor.load(get_model_path('value'))
+            self.value_predictor.load(get_model_path('value', epoch=300, num_augmentation=10000, name_postfix='val2'))
 
         except FileNotFoundError as ex:
             print(ex)
@@ -169,7 +169,7 @@ class SyntaxSQL():
         if self.current_keyword == 'select':
             self.sql.COLS[-1].distinct = distinct
         elif self.current_keyword == 'orderby':
-            self.sql.ORDERBY[-1].distinct = distinct
+            self.sql.ORDERBY[-1].distinct = ''
         elif self.current_keyword == 'having':
             self.sql.HAVING[-1].distinct = distinct
 
@@ -196,36 +196,42 @@ class SyntaxSQL():
             self.sql.HAVING[-1].agg = agg
         
     def generate_between(self, column):
+        ban_prediction = None
+
         # Make two predictions
         for i in range(2):
         
             # Get the history, from the current sql
             history = self.sql.generate_history()
             hs_emb_var, hs_len = self.embeddings.get_history_emb([history['value'][-1]])
-
-            num_tokens, start_index = self.value_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len)
-
-            num_tokens, start_index = int(num_tokens[0]), int(start_index[0])
             tokens=word_tokenize(str.lower(self.question))
+
+            # Create mask for integer tokens
+            int_tokens = [text2int(token.replace('-','').replace('.','')).isdigit() for token in tokens]
+
+            num_tokens, start_index = self.value_predictor.predict(self.q_emb_var, self.q_len, hs_emb_var, hs_len, self.col_emb_var, self.col_len, self.col_name_len, ban_prediction, int_tokens)
+            num_tokens, start_index = int(num_tokens[0]), int(start_index[0])
 
             try:
                 value = ' '.join(tokens[start_index:start_index+num_tokens])
-                
+
                 if self.current_keyword == 'where':
                     if i == 0:
                         self.sql.WHERE[-1].value = value
+                        ban_prediction = (num_tokens, start_index)
                     else:
                         self.sql.WHERE[-1].valueless = value
 
                 elif self.current_keyword == 'having':
                     if i == 0:
                         self.sql.HAVING[-1].value = value
+                        ban_prediction = (num_tokens, start_index)
                     else:
                         self.sql.HAVING[-1].valueless = value
 
             # The value might not exist in the question, so just ignore it
-            except:
-                pass
+            except Exception as e:
+                print(e)
 
     def generate_value(self, column):
         
