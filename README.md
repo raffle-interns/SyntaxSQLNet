@@ -23,18 +23,15 @@ With these changes, our model achives the following accuracy on easy+medium ques
 
 
 ## Setup
-### Requirements
-* python >= 3.6
-* tb-nightly >= 1.15
-* pytorch >= 1.1.0
-* nltk
-* numpy
-* tdqm
+1. Python >= 3.6
+2. Install dependencies using ``pip install -r requirements.txt``
 
 
 ### Data
 The data for the model can be downloaded from [Spider Dataset website](https://yale-lily.github.io/spider). 
 Note that this model only focuses on easy and medium difficulty queries, meaning that we don't include multi table queries, like joins or sub-queries.
+
+To generate augmented data, you also need to download ``wikisql_tables.json`` from [here](https://drive.google.com/file/d/13I_EqnAR4v2aE-CWhJ0XQ8c-UlGS9oic/view?usp=sharing)
 
 The pretrained embeddings can be downloaded from the [Glove website](https://nlp.stanford.edu/projects/glove/)
 
