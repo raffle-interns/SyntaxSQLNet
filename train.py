@@ -105,19 +105,19 @@ def train(model, train_dataloader, validation_dataloader, embedding, name="", nu
 if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_layers', default=2, type=int)
-    parser.add_argument('--lr', default=1e-3, type=float)
-    parser.add_argument('--num_epochs',  default=300, type=int)
+    parser.add_argument('--num_layers', default=2, type=int, help='Number of layers in the LSTMs')
+    parser.add_argument('--lr', default=1e-3, type=float, help='Learnign rate')
+    parser.add_argument('--num_epochs',  default=300, type=int, help='Number of epochs to train the model')
     parser.add_argument('--batch_size', default=64, type=int)
-    parser.add_argument('--name_postfix',default='', type=str)
+    parser.add_argument('--name_postfix',default='', type=str, help='Optional postfix of the model name')
     parser.add_argument('--gpu', default=True, type=bool)
     parser.add_argument('--hidden_dim', default=100, type=int)
-    parser.add_argument('--save', default=True, type=bool)
+    parser.add_argument('--save', default=True, type=bool,help='Save the model during training')
     parser.add_argument('--dropout', default=0.3, type=float)
-    parser.add_argument('--embedding_dim',default=300, type=int)
-    parser.add_argument('--num_augmentation', default=10000, type=int)
-    parser.add_argument('--N_word',default=6, type=int)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='keyword')
+    parser.add_argument('--embedding_dim',default=300, type=int, help='Dimension of the embeddings')
+    parser.add_argument('--num_augmentation', default=10000, type=int, help='Number of additional augmented questions to generate')
+    parser.add_argument('--N_word',default=6, type=int, help='Number of trained tokens for the embedding, this just corresponds to the name')
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='distinct')
     args = parser.parse_args()
 
     # Models with 100% validation accuracy:
