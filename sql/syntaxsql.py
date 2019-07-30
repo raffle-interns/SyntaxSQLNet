@@ -36,12 +36,12 @@ class SyntaxSQL():
 
         try:
             self.having_predictor.load(get_model_path('having'))
-            self.keyword_predictor.load(get_model_path('keyword'))
+            self.keyword_predictor.load(get_model_path('keyword', epoch=300, num_augmentation=10000, name_postfix='kw2'))
             self.andor_predictor.load(get_model_path('andor', batch_size=256, num_augmentation=0))
             self.desasc_predictor.load(get_model_path('desasc'))
             self.op_predictor.load(get_model_path('op', num_augmentation=10000))
             self.col_predictor.load(get_model_path('column', epoch=300, num_augmentation=30000, name_postfix='rep2aug'))
-            self.distinct_predictor.load(get_model_path('distinct'))
+            self.distinct_predictor.load(get_model_path('distinct', epoch=300, num_augmentation=0, name_postfix='dist2'))
             self.agg_predictor.load(get_model_path('agg', num_augmentation=0))
             self.limit_value_predictor.load(get_model_path('limitvalue'))
             self.value_predictor.load(get_model_path('value', epoch=300, num_augmentation=10000, name_postfix='val2'))
@@ -115,6 +115,7 @@ class SyntaxSQL():
 
         if num_kw[0] == 0:
             return
+
         # We want the keywords in the same order as much as possible
         # Keywords are added FIFO queue, so sort it
         key_words = sorted(kws[0]) 
@@ -122,7 +123,6 @@ class SyntaxSQL():
         # Add other states to the list
         for key_word in key_words:
             KEYWORDS[int(key_word)]()
-        # First state should be a select state
         
     def generate_andor(self, column):
         # Get the history, from the current sql
@@ -331,6 +331,7 @@ class SyntaxSQL():
             self.generate_ascdesc(column)    
             
     def GetSQL(self, question, database):
+        # Generate representation of the database in form of SQL clauses
         self.sql = SQLStatement(query=None, database=database)
         self.question = question
         
@@ -338,6 +339,7 @@ class SyntaxSQL():
 
         columns = self.sql.database.to_list()
 
+        # Get all columns from the database and split them
         columns_all_splitted = []
         for i, column in enumerate(columns):
             columns_tmp = []
@@ -345,6 +347,7 @@ class SyntaxSQL():
                 columns_tmp.extend(word.split('_'))
             columns_all_splitted += [columns_tmp]
 
+        # Get embedding for the columns and keywords
         self.col_emb_var, self.col_len, self.col_name_len = self.embeddings.get_columns_emb([columns_all_splitted])
         _, num_cols_in_db, col_name_lens, embedding_dim = self.col_emb_var.shape
         
@@ -353,6 +356,7 @@ class SyntaxSQL():
 
         self.kw_emb_var, self.kw_len = self.embeddings.get_history_emb([['where', 'order by', 'group by']])
 
+        # Start recursively generating the sql history starting with the keywords, select and so on.
         self.generate_keywords()
 
         return self.sql

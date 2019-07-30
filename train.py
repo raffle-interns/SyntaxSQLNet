@@ -117,7 +117,7 @@ if __name__ == '__main__':
     parser.add_argument('--embedding_dim',default=300, type=int)
     parser.add_argument('--num_augmentation', default=10000, type=int)
     parser.add_argument('--N_word',default=6, type=int)
-    parser.add_argument('--model', choices=list(model_list.models.keys()), default='distinct')
+    parser.add_argument('--model', choices=list(model_list.models.keys()), default='keyword')
     args = parser.parse_args()
 
     # Models with 100% validation accuracy:
