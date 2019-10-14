@@ -1,4 +1,4 @@
-Pytorch implementation of [SyntaxSQLNet: Syntax Tree Networks for Complex and Cross-DomainText-to-SQL Task
+Pytorch 1.2 implementation of [SyntaxSQLNet: Syntax Tree Networks for Complex and Cross-DomainText-to-SQL Task
 ](https://arxiv.org/abs/1810.05237).
 
 ## Improvements
